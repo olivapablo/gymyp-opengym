@@ -12,6 +12,7 @@ import './coach.css'
 import './index.css'
 import { hideBoot, handOverFromLaunchScreen } from './lib/boot.js'
 import { guardFocusZoom } from './lib/viewport-zoom.js'
+import { initFirebaseAuth } from './lib/useFirebaseAuth.js'
 
 // App.jsx restores per-route scroll itself; the browser's own attempt races it.
 // A script that dies before the app draws would otherwise leave the boot logo lifting forever.
@@ -22,6 +23,9 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
 
 // The web build lets people pinch to zoom; on iOS a focused small field must not zoom the page.
 if (!MOBILE) guardFocusZoom()
+
+// Iniciar sesión con Firebase (mantiene la sesión viva entre recargas)
+initFirebaseAuth()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode><App /></StrictMode>
