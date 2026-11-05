@@ -8,6 +8,7 @@ import { speedUnitOf } from '../lib/speed.js'
 import { formulaOf, FORMULA_NAMES } from '../lib/onerm.js'
 import { copyText } from '../lib/clipboard.js'
 import { useUI } from '../store/useUI.js'
+import TrainerRolesSheet from '../components/TrainerRolesSheet.jsx'
 import { activeGym, gymLabel, switchGym } from '../lib/gym-inventory.js'
 import { startTour, TUTORIALS, TUTORIAL_COPY, tutorialDone } from '../lib/tour.js'
 import { ACCENTS, ACCENT_NAMES, todayISO, localTZ, weekStartOf, MONDAY, SUNDAY, fmtPlate } from '../lib/format.js'
@@ -1192,7 +1193,7 @@ export default function Settings({ page = null, find = null, via = null, entryKe
       {user && !DEMO && <ServerSyncSection>
         {MOBILE && <>
           <Row icon="personCircle" iconTint={user.role === 'trainer' ? 'var(--blue)' : 'var(--acc)'} title="Rol en la app" subtitle={user.role === 'trainer' ? 'Entrenador (gestión de rutinas)' : 'Alumno (solo lectura y entrenar)'} />
-          {(user.admin || user.role === 'trainer') && <Row icon="person2" iconTint="var(--indigo)" title="Alumnos y Roles" subtitle="Administrar perfiles y roles" accessory="chevron" onClick={() => openSheet(close => <TrainerRolesSheet close={close} />)} />}
+          {(user.admin || user.role === 'trainer') && <Row icon="person2" iconTint="var(--indigo)" title="Alumnos y Roles" subtitle="Administrar perfiles y roles" accessory="chevron" onClick={() => useUI.getState().openSheet(close => <TrainerRolesSheet close={close} />)} />}
           {user.admin && <Row icon="crown" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
           {/* A code to sign in on a computer (#551), behind the same proof as in a browser. */}
           <DeviceLinkRow state={passkeys.st} />
@@ -1218,7 +1219,7 @@ export default function Settings({ page = null, find = null, via = null, entryKe
             onClick={() => window.open(REPO, '_blank', 'noopener')} />
         </> : user ? <>
           <Row icon="personCircle" iconTint={user.role === 'trainer' ? 'var(--blue)' : 'var(--acc)'} title="Rol en la app" subtitle={user.role === 'trainer' ? 'Entrenador (gestión de rutinas)' : 'Alumno (solo lectura y entrenar)'} />
-          {(user.admin || user.role === 'trainer') && <Row icon="person2" iconTint="var(--indigo)" title="Alumnos y Roles" subtitle="Administrar perfiles y roles" accessory="chevron" onClick={() => openSheet(close => <TrainerRolesSheet close={close} />)} />}
+          {(user.admin || user.role === 'trainer') && <Row icon="person2" iconTint="var(--indigo)" title="Alumnos y Roles" subtitle="Administrar perfiles y roles" accessory="chevron" onClick={() => useUI.getState().openSheet(close => <TrainerRolesSheet close={close} />)} />}
           {user.admin && <Row icon="crown" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
           <PasskeysRow state={passkeys.st} changed={credsChanged} />
           <DeviceLinkRow state={passkeys.st} />

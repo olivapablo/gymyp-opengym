@@ -5,15 +5,9 @@ import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from './firebase.js'
 import { useStore } from '../store/useStore.js'
+import { markFirebaseReady } from './firebase-ready.js'
 
 let initialized = false
-
-// Promesa que se resuelve cuando Firebase determina el estado inicial de sesión.
-// App.jsx llama a boot() en useEffect, pero Firebase puede tardar ~300ms en responder.
-// Esta promesa hace que boot() espere a Firebase antes de llamar a /api/me.
-let firebaseResolved = false
-let resolveFirebase = null
-export const firebaseReady = new Promise(res => { resolveFirebase = res })
 
 export function initFirebaseAuth() {
   if (initialized) return
@@ -23,12 +17,8 @@ export function initFirebaseAuth() {
     const store = useStore.getState()
 
     if (!firebaseUser) {
-      // No hay sesión en Firebase: dejar que el flujo normal continúe
-      // (mostrará el login de Firebase, ya que Login.jsx usa Firebase)
-      if (!firebaseResolved) {
-        firebaseResolved = true
-        resolveFirebase(false)  // false = no hay usuario
-      }
+      // No hay sesión en Firebase: dejar que boot() muestre el login
+      markFirebaseReady()
       store.setUser(null)
       return
     }
@@ -39,7 +29,7 @@ export function initFirebaseAuth() {
       if (!snap.exists()) {
         // Perfil no existe (write de Firestore falló al registrarse)
         await signOut(auth)
-        if (!firebaseResolved) { firebaseResolved = true; resolveFirebase(false) }
+        markFirebaseReady()
         store.setUser(null)
         return
       }
@@ -54,10 +44,10 @@ export function initFirebaseAuth() {
       store.setUser(user)
       // Marcar la app como lista (reemplaza /api/me del boot original)
       store.firebaseBoot()
-      if (!firebaseResolved) { firebaseResolved = true; resolveFirebase(true) }
+      markFirebaseReady()
     } catch (err) {
       console.error('Error cargando perfil de Firestore:', err)
-      if (!firebaseResolved) { firebaseResolved = true; resolveFirebase(false) }
+      markFirebaseReady()
       store.setUser(null)
     }
   })

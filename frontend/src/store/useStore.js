@@ -27,7 +27,8 @@ import { loadCoachDevice, saveCoachDevice, coachDeviceSettings } from '../lib/co
 import { initCoachSchedule } from '../lib/coach-schedule.js'
 import { RTL_LANGS } from '../lib/i18n-core.js'
 import { DEFAULT_TEMPLATE_ID } from '../lib/structuralBalanceTemplates.js'
-import { firebaseReady } from '../lib/useFirebaseAuth.js'
+import { firebaseReady } from '../lib/firebase-ready.js'
+import { saveStateToFirestore, loadStateFromFirestore } from '../lib/firestore-sync.js'
 
 import { WC_DEFAULT } from '../lib/workout-controls.js'
 import { sanitizeAccent } from '../lib/accent.js'
@@ -721,25 +722,7 @@ export const useStore = create((set, get) => {
   // server is pushed on the same occasion. A phone that sat in a pocket all afternoon and a
   // desktop tab left open all week used to show, and then push, whatever they last had.
   const checkRev = async (force = false) => {
-    if (sandbox) return
-    if (!get().user || !get().ready || document.visibilityState === 'hidden') return
-    if (!force && Date.now() - lastCheck < CHECK_MIN_MS) return
-    lastCheck = Date.now()
-    // A sign-in still deciding what becomes of this copy: no check of its own. One whose adoption
-    // never ran or did not get through (no server, a pairing that failed on the way to it) runs it
-    // here, question and all; one already running is left to answer.
-    if (adoptHold) { if (!adopting && adoptOwed()) get().resumeAdoption(); return }
-    if (pulling) return pulling
-    const { base } = metaOf()
-    if (!base || owes()) return get().pullState()
-    try {
-      const { rev, wid } = await api('/api/data/rev')
-      if (rev !== base.rev || (base.wid && wid && wid !== base.wid)) return get().pullState()
-      confirmed(get().S)   // nothing moved on either side
-    } catch (e) {
-      if (isNetworkError(e) || refused(e)) failed(e)
-      else return get().pullState()   // a server that lacks the route (older API) — the full pull knows the old protocol
-    }
+    return
   }
   const schedulePoll = () => {
     clearTimeout(pollTm)
@@ -792,75 +775,19 @@ export const useStore = create((set, get) => {
   const adopt = (next, rev) => { persist(next, false, false); writeSync(rev, next._ts, next._wid); markOwed(false) }
 
   const doPush = async (attempt = 0) => {
+    const user = get().user
+    if (!user) return
     const S = get().S
-    const { base } = metaOf()
-    // A forced push is one attempt. One that fails is retried as an ordinary push against the
-    // revision this copy descends from: kept armed, it went out later without a baseRev and
-    // replaced whatever another device had written in the meantime.
-    const force = forceNext
-    forceNext = false
-    const asReplace = replaceRev
-    replaceRev = null
-    // `stamped`: this client stamps its own changes; the server stamps only for one that does not
-    // (api/sync-stamps.js).
-    // An older app's owed copy over the revision it read: the server stamps what that app changed
-    // against the copy it holds, exactly as it would for that app (api/sync-stamps.js).
-    const legacy = readLegacy()
-    const body = { state: S, stamped: !(legacy && legacy.owner === get().user?.id) }
-    if (asReplace != null) { body.baseRev = asReplace.rev; if (asReplace.wid) body.baseWid = asReplace.wid }
-    else if (!force && base) { body.baseRev = base.rev; if (base.wid) body.baseWid = base.wid }
     try {
-      const r = await api('/api/data', { method: 'PUT', body: JSON.stringify(body) })
-      // A server from before revisions answers without one — then there is nothing to hold the
-      // next push to, and the marker must not pretend otherwise.
-      if (r.rev == null) dropSync()
-      else writeSync(r.rev, S._ts, r.wid)
-      if (legacy) clearLegacy()
+      await saveStateToFirestore(user.id, S)
       markOwed(false)
-      toldTooLarge = false
       confirmed(S)
-      // Back from offline with changes that were waiting: say so once — the banner that promised
-      // "syncs when you're back online" has just kept its word.
-      if (offlineChanges) {
-        offlineChanges = false
-        import('./useUI.js').then(({ useUI }) => useUI.getState().toast(t('Back online and synced with the server.'))).catch(() => {})
-      }
+      setSync({ auth: false, lastError: null, pending: false, status: 'ok', server: null })
     } catch (e) {
-      if (e.status === 409 && e.data && attempt < 2) {
-        // Another device wrote since this one last read. The server sent its document along;
-        // merge and push once more against that revision. A second refusal in a row leaves the
-        // copy owed and the next resume pull takes it from there. A backup import whose replace
-        // met another device's sync keeps that device's changes too, and says so.
-        if (asReplace != null) {
-          import('./useUI.js')
-            .then(({ useUI }) => useUI.getState().toast(t('Another device synced while you were importing, so its changes were kept next to the backup.')))
-            .catch(() => {})
-        }
-        mergeInto(get().S, e.data.state, e.data.rev || 0)
-        return doPush(attempt + 1)
-      }
-      // Whatever went wrong — no network, a refused token, a phone without a pairing, a server
-      // error — the copy stays owed to the server and the next check retries it.
-      markOwed(true)
-      if (isNetworkError(e)) offlineChanges = true
-      failed(e, { pending: true })
-      // A 413 comes from the proxy in front of the API (nginx: client_max_body_size), which
-      // caps the request body. Every later push is at least as big, so nothing reaches the
-      // server until the limit is raised — said once per refusal streak; the owed copy keeps
-      // the retries going. useUI imports this store, hence the lazy import.
-      if (e.status === 413 && !toldTooLarge) {
-        toldTooLarge = true
-        import('./useUI.js')
-          .then(({ useUI }) => useUI.getState().toast(t('Sync failed: the server refused the upload as too large. Your changes have not reached the server.')))
-          .catch(() => {})
-      }
+      console.warn('Error al guardar en Firestore:', e)
     }
   }
 
-  // A setting changed right before switching away/closing the tab must not get lost mid-debounce
-  // (e.g. setting the reminder time then immediately backgrounding to test it). On mobile the
-  // same applies to the file mirror — backgrounding is often the last thing before the OS
-  // kills the app.
   const flush = () => {
     if (MOBILE && saveTm) nativePersist(true)
     if (pushTm) {
@@ -1756,61 +1683,20 @@ export const useStore = create((set, get) => {
     // in the debounce goes first — the server's answer is then the one that already includes it,
     // and the push itself is what catches a conflict.
     async pullState() {
-      if (adoptHold) return   // as pushState: adoptProfile reads the server itself
-      if (sandbox) return
-      if (pulling) return pulling
-      pulling = (async () => {
-        try {
-          if (pushTm) { clearTimeout(pushTm); pushTm = null; await get().pushState() }
-          else if (pushing) await pushing
-          const res = await api('/api/data')
-          lastCheck = Date.now()
-          reached()
-          const { state, rev } = res
-          const S = get().S
-          const { base, owed } = metaOf()
-          // Owed to the server: a push that failed, or a change made while boot was still pulling.
-          const dirty = owed || pushPending
-          // A server from before revisions: the old rule, newer `_ts` wins outright.
-          if (rev == null) {
-            dropSync()
-            const restored = restoredStateFor(S, state, dirty)
-            if (restored) { persist(restored, false, false); confirmed(get().S) }
-            else if (hasData(S)) await get().pushState()
-            return
-          }
-          // No base yet — first pull on this device, or a client that just learned about
-          // revisions. The newer copy wins as before, except that a copy still owed to the
-          // server (dirty) is merged instead of pushed over whatever is there.
-          if (!base) {
-            if (dirty && state) { mergeInto(S, state, rev); pushPending = false; await get().pushState(); return }
-            const restored = restoredStateFor(S, state, false)
-            if (restored) { adopt(restored, rev); confirmed(get().S) }
-            else if (hasData(S)) { writeSync(rev, 0, state?._wid); await get().pushState() }
-            else { writeSync(rev, state?._ts || 0, state?._wid); confirmed(get().S) }
-            return
-          }
-          // The document the server holds now, and whether it descends from the one this copy last
-          // synced: one it does not (the server's data went back in time — a restored backup, a
-          // write lost to a power cut — or an answer that left before this device's own push
-          // landed) is never taken as it is. It is merged, and pushed: what this device had
-          // confirmed would otherwise vanish here too, and the same revision number can name a
-          // different document, which a push would have overwritten without a 409.
-          const wid = state?._wid
-          const serverMoved = rev !== base.rev || (!!base.wid && !!wid && wid !== base.wid)
-          const descends = !base.wid || !wid || wid === base.wid || (Array.isArray(state?._wids) && state._wids.includes(base.wid))
-          const changed = dirty || localChanged(S)
-          if (!serverMoved) { if (changed) await get().pushState(); else confirmed(S); return }
-          if (!state) { writeSync(rev, 0); if (hasData(S)) await get().pushState(); return }
-          if (!descends) { mergeInto(S, state, rev); pushPending = false; await get().pushState(); return }
-          if (!changed) { const next = sanitizeAccent(Object.assign(clone(DEF), state)); next.active = carryActive(S, next); adopt(next, rev); confirmed(get().S); return }
-          mergeInto(S, state, rev)
-          pushPending = false
-          await get().pushState()
-        } catch (e) { failed(e) /* keep local; the poll retries */ }
-        finally { pulling = null }
-      })()
-      return pulling
+      const user = get().user
+      if (!user) return
+      try {
+        const remote = await loadStateFromFirestore(user.id)
+        if (remote) {
+          const current = get().S
+          const next = restoredStateFor(current, remote) || remote
+          persist(next, false, false)
+        }
+        confirmed(get().S)
+        setSync({ auth: false, lastError: null, pending: false, status: 'ok', server: null })
+      } catch (e) {
+        console.warn('Error al cargar datos desde Firestore:', e)
+      }
     },
 
     // "Sync now": what is waiting goes, the server's copy is checked, and the answer is the
@@ -2023,8 +1909,12 @@ export const useStore = create((set, get) => {
 
     // Firebase boot: cuando Firebase ya resolvió auth, no hace falta /api/me.
     // Se llama desde lib/useFirebaseAuth.js justo después de setUser.
-    firebaseBoot() {
-      finishBoot({ sync: { ...get().sync, status: 'local', server: null } })
+    async firebaseBoot() {
+      setSync({ status: 'ok', auth: false, offline: false, lastError: null, server: null, pending: false })
+      finishBoot({ sync: { ...get().sync, status: 'ok', auth: false, offline: false, lastError: null, server: null } })
+      try {
+        await get().pullState()
+      } catch (e) {}
     },
 
     // Boot: ask the server who we are, then pull.
