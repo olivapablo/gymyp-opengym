@@ -26,13 +26,14 @@ export default function TabBar({ onStart }) {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const isGuest = useStore(s => s.isGuest())
+  const isStudent = user?.role === 'student'
   // With the connection banner switched off, a sync problem shows as a dot on Home, the tab
   // Settings lives under (#369, #330).
   const trouble = useConnectionTrouble()
   if (!user && !isGuest) return null
   const cur = loc.pathname.split('/')[1] || 'home'
   // A screen without a tab of its own lights the tab it is opened from (Muscles from both).
-  const PARENT = { history: 'stats', 'structural-balance': 'stats', 'progress-photos': 'stats', measurements: 'stats', settings: 'home', checkin: 'home', muscles: 'library' }
+  const PARENT = { history: 'stats', 'structural-balance': 'stats', 'progress-photos': 'stats', measurements: 'stats', settings: isStudent ? 'settings' : 'home', checkin: 'home', muscles: 'library' }
   const parent = cur === 'muscles' && loc.state?.from === '/stats' ? 'stats' : PARENT[cur]
   const on = k => cur === k || parent === k
 
@@ -55,7 +56,7 @@ export default function TabBar({ onStart }) {
 
   return (
     <nav id="tabbar">
-      <Tab active={on('home')} icon="house" label={t('Home')} dot={trouble} onClick={() => switchTab('/home')} tour="tab-home" />
+      <Tab active={on('home')} icon="house" label={t('Home')} dot={trouble && !isStudent} onClick={() => switchTab('/home')} tour="tab-home" />
       <Tab active={on('plan')} icon="calendar" label={t('Plan')} onClick={() => switchTab('/plan')} tour="tab-plan" />
       {/* On the workout screen itself there is nothing to resume, so the button reads as the
           tab it is and stays lit (#29); anywhere else it brings you back to the exercise you
@@ -71,7 +72,11 @@ export default function TabBar({ onStart }) {
           : <span>{S.active ? (cur === 'workout' ? t('Workout') : S.active.editingWorkoutId ? t('Edit workout') : t('Resume')) : t('Start')}</span>}
       </button>
       <Tab active={on('stats')} icon="chart" label={t('Stats')} onClick={() => switchTab('/stats')} tour="tab-stats" />
-      <Tab active={on('library')} icon="dumbbell" label={t('Exercises')} onClick={() => switchTab('/library')} tour="tab-library" />
+      {isStudent ? (
+        <Tab active={on('settings')} icon="gear" label={t('Settings')} dot={trouble} onClick={() => switchTab('/settings')} tour="tab-settings" />
+      ) : (
+        <Tab active={on('library')} icon="dumbbell" label={t('Exercises')} onClick={() => switchTab('/library')} tour="tab-library" />
+      )}
     </nav>
   )
 }

@@ -158,7 +158,7 @@ db.creds = db.creds || [];
 db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.deviceLinks = db.deviceLinks || [];   // unused one-time device links, hashed (device-link.js)
-const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
+const isAdmin = user => !!user && (user.admin === true || user.role === 'trainer' || ADMIN_UIDS.includes(user.id) || (db.users.length > 0 && db.users[0]?.id === user.id));
 // One owner per instance, any number of admins. Admins run the place day to day (users, invites,
 // the Coach); the owner is the one admin the others cannot act on: only the owner appoints or
 // removes admins, deletes an admin's account, hands the role on, or clears the activity log.

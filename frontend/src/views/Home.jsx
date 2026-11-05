@@ -36,6 +36,7 @@ export default function Home() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
+  const isStudent = user?.role === 'student'
   // The banner switched off and the sync stuck: a dot on the gear (Settings → Show connection status).
   const trouble = useConnectionTrouble()
   const [weekOffset, setWeekOffset] = useState(0)
@@ -127,7 +128,7 @@ export default function Home() {
     <div className="hdr">
       <SeasonDeco spot="header-bats" />
       <div><h1>{user ? t('Hi {0}', user.name) : 'openGym'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
-      <button className="iconbtn" data-tour="settings-gear" onClick={() => nav('/settings')} aria-label={trouble ? t('Settings') + ', ' + t('Connection problem') : t('Settings')}><Icon name="gear" />{trouble && <span className="tab-dot" aria-hidden="true" />}</button>
+      {!isStudent && <button className="iconbtn" data-tour="settings-gear" onClick={() => nav('/settings')} aria-label={trouble ? t('Settings') + ', ' + t('Connection problem') : t('Settings')}><Icon name="gear" />{trouble && <span className="tab-dot" aria-hidden="true" />}</button>}
     </div>
 
     <div className="card">

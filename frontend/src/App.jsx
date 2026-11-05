@@ -343,7 +343,7 @@ function Shell() {
       <Route path="/workout" element={<Workout />} />
       <Route path="/stats" element={<Stats />} />
       <Route path="/history" element={<History />} />
-      <Route path="/library" element={<Library />} />
+      <Route path="/library" element={user?.role === 'student' ? <Navigate to="/plan" replace /> : <Library />} />
       <Route path="/muscles" element={<Muscles />} />
       <Route path="/structural-balance" element={<StructuralBalance />} />
       {isOn(S, 'body') && <Route path="/progress-photos" element={<ProgressPhotos />} />}
@@ -357,7 +357,7 @@ function Shell() {
       {isOn(S, 'coach') && <Route path="/coach/intake" element={<CoachIntake />} />}
       {isOn(S, 'coach') && <Route path="/coach/proposal" element={<Navigate to="/coach" replace />} />}
       {isOn(S, 'coach') && <Route path="/coach/setup" element={<CoachSetup />} />}
-      <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
+      <Route path="/admin" element={(user?.admin || user?.role === 'trainer') ? <Admin /> : <Navigate to="/home" replace />} />
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
   ))
