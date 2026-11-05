@@ -27,6 +27,7 @@ import { loadCoachDevice, saveCoachDevice, coachDeviceSettings } from '../lib/co
 import { initCoachSchedule } from '../lib/coach-schedule.js'
 import { RTL_LANGS } from '../lib/i18n-core.js'
 import { DEFAULT_TEMPLATE_ID } from '../lib/structuralBalanceTemplates.js'
+import { firebaseReady } from '../lib/useFirebaseAuth.js'
 
 import { WC_DEFAULT } from '../lib/workout-controls.js'
 import { sanitizeAccent } from '../lib/accent.js'
@@ -2020,8 +2021,19 @@ export const useStore = create((set, get) => {
       await mediaStore.clearAll().catch(() => {})
     },
 
+    // Firebase boot: cuando Firebase ya resolvió auth, no hace falta /api/me.
+    // Se llama desde lib/useFirebaseAuth.js justo después de setUser.
+    firebaseBoot() {
+      finishBoot({ sync: { ...get().sync, status: 'local', server: null } })
+    },
+
     // Boot: ask the server who we are, then pull.
     async boot() {
+      // Firebase build: esperar a que Firebase resuelva la sesión.
+      // onAuthStateChanged tarda ~200-400ms; si ya resolvió con usuario,
+      // firebaseBoot() ya seteó ready=true y no hay que llamar a /api/me.
+      await firebaseReady
+      if (get().ready) return
       // Mobile build: no backend by default — restore from the file mirror (the durable copy;
       // localStorage may have been evicted since the last run) and go straight in. Unless this
       // device was paired to a server ("connect to my server" mode, lib/remote.js), in which
