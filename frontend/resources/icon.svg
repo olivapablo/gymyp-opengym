@@ -1,13 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 512 512">
-  <!-- App-icon source == the PWA icon (public/icon-512.png), geometry traced 1:1 so the
-       native app, the home-screen PWA and the website favicon all show the same icon.
-       Generate platform icons + splash via `npx @capacitor/assets generate` — docs/MOBILE.md. -->
-  <rect width="512" height="512" fill="#0c0e12"/>
-  <g fill="#a3e635">
-    <rect x="80" y="242" width="352" height="28"/>
-    <rect x="80" y="199" width="36" height="114"/>
-    <rect x="131" y="169" width="47" height="174"/>
-    <rect x="334" y="169" width="47" height="174"/>
-    <rect x="396" y="199" width="36" height="114"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" role="img" aria-label="FITTRACK icon">
+  <!-- Dark rounded square background -->
+  <rect width="200" height="200" rx="44" fill="#0B0F0D"/>
+  <!-- FF Monogram, centered and scaled -->
+  <g transform="translate(32, 38) scale(2.75)">
+    <!-- Left F (larger) -->
+    <polygon points="6,48 14,12 22,12 14,48" fill="#B7FF3A"/>
+    <polygon points="14,12 38,12 36,19 12,19" fill="#B7FF3A"/>
+    <polygon points="11,29 32,29 30,36 9,36" fill="#B7FF3A"/>
+    <!-- Right F (smaller, offset) -->
+    <polygon points="28,48 34,20 41,20 35,48" fill="#B7FF3A"/>
+    <polygon points="34,20 52,20 50,27 32,27" fill="#B7FF3A"/>
+    <polygon points="31,36 48,36 46,42 29,42" fill="#B7FF3A"/>
   </g>
 </svg>
