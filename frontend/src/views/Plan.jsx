@@ -1,3 +1,10 @@
+import { useEffect } from 'react'
+import { api } from '../lib/api.js'
+import { exercisePicker, exConfigSheet, glyphPicker } from '../sheets.jsx'
+import { exOr } from '../lib/exercises.js'
+import { pickedExerciseConfig } from '../lib/history.js'
+import { exerciseNameFor } from '../lib/i18n.js'
+import { Thumb } from '../components/Media.jsx'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -138,7 +145,22 @@ export default function Plan() {
   const config = useStore(s => s.config)
   const coachMode = useStore(s => s.coachLocal?.mode)
   const user = useStore(s => s.user)
+  const isStudent = user?.role === 'student'
+  const isTrainer = !isStudent
+  const [students, setStudents] = useState([])
+  const [activeStudentId, setActiveStudentId] = useState(null)
   const fileRef = useRef(null)
+
+  useEffect(() => {
+    if (isTrainer) {
+      api('/api/trainer/students')
+        .then(res => {
+          const st = (res.students || []).filter(u => u.id !== user?.id)
+          setStudents(st)
+        })
+        .catch(() => {})
+    }
+  }, [isTrainer, user?.id])
   const [view, setViewState] = useState(readView)
   const setView = v => {
     setViewState(v)
@@ -161,8 +183,10 @@ export default function Plan() {
       items: [
         { icon: 'share', label: t('Export plan file'), sub: t('A small file a friend can import into their own openGym. Routines only, none of your workouts or weigh-ins.'), disabled: !has, onClick: exportPlanFile },
         { icon: 'note', label: t('Print / Save as PDF'), disabled: !has, onClick: printWholePlan },
-        { icon: 'download', label: t('Import a plan file'), onClick: () => fileRef.current?.click() },
-        { icon: 'clipboard', label: t('Load starter plan'), onClick: starterPlanSheet },
+        ...(!isStudent ? [
+          { icon: 'download', label: t('Import a plan file'), onClick: () => fileRef.current?.click() },
+          { icon: 'clipboard', label: t('Load starter plan'), onClick: starterPlanSheet }
+        ] : []),
         { icon: 'calendar', label: t('Programmes'), sub: t('Your routines as a block of weeks, with starter programmes to try.'), onClick: () => nav('/plan/programmes') },
       ],
     })
@@ -183,20 +207,40 @@ export default function Plan() {
       </div>
     </div>
     <input ref={fileRef} type="file" accept="application/json,.json" onChange={pickFile} hidden />
+    {isTrainer && students.length > 0 && (
+      <div style={{ marginBottom: 12 }}>
+        <Segmented
+          value={activeStudentId || 'me'}
+          onChange={v => setActiveStudentId(v === 'me' ? null : v)}
+          options={[
+            { value: 'me', label: 'Mis Rutinas' },
+            ...students.map(st => ({ value: st.id, label: 'Alumno: ' + st.name }))
+          ]}
+        />
+      </div>
+    )}
+    {activeStudentId ? (
+      <StudentPlanManager
+        student={students.find(x => x.id === activeStudentId)}
+        S={S}
+        nav={nav}
+      />
+    ) : <>
     <Segmented className="plan-views" tour="plan-views" value={view} onChange={setView}
       options={[{ value: 'schedule', label: t('Schedule') }, { value: 'routines', label: t('Routines') }]} />
     {progChip && <button type="button" className="prog-strip" onClick={() => nav('/plan/programmes')}>
       <Icon name="calendar" /><span className="grow">{S.programmes?.[S.programme?.id]?.name || t('Programme')}</span><span className="tag acc">{progChip}</span>
     </button>}
     {view === 'routines'
-      ? <Routines S={S} update={update} nav={nav} />
-      : <Schedule S={S} update={update} nav={nav} mode={mode} />}
+      ? <Routines S={S} update={update} nav={nav} isStudent={isStudent} />
+      : <Schedule S={S} update={update} nav={nav} mode={mode} isStudent={isStudent} />}
+    </>}
   </div>
 }
 
 /* ================================ Schedule ================================ */
 
-function Schedule({ S, update, nav, mode }) {
+function Schedule({ S, update, nav, mode, isStudent }) {
   const [editLoop, setEditLoop] = useState(false)
   /* The rotation editor. What it shows is the live pass when there is one, otherwise the saved
      sequence — S.rotation is only a definition, so the pass is the truth whenever it exists.
@@ -249,7 +293,7 @@ function Schedule({ S, update, nav, mode }) {
   })
   const loopReorder = useListReorder(seq.length, (from, to) => setSeq(moved(seq, from, to)))
   const takeOut = at => takeOutOfLoop(at, setSeq, seq, seqLabel)
-  const swipe = workoutControls(S).swipeSets && !external
+  const swipe = !isStudent && workoutControls(S).swipeSets && !external
   // Any routine, also one already in the loop (A → B → C → B), and rest days (#536).
   const addToSeq = () => menuSheet({
     title: t('Add to the rotation'),
@@ -319,7 +363,7 @@ function Schedule({ S, update, nav, mode }) {
     </Section>
 
     {!S.routines.length && <EmptyState className="plan-empty" icon="clipboard" title={t('No routines yet.')} text={t('Make one, or grab the starter plan to get going.')}>
-      <Button variant="tinted" icon="clipboard" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
+      {!isStudent && <Button variant="tinted" icon="clipboard" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>}
     </EmptyState>}
 
     {/* A queue payload that arrived unusable: a fix-up, shown whichever way you train. Giving it
@@ -342,8 +386,8 @@ function Schedule({ S, update, nav, mode }) {
             adopt it first ("Use this rotation" below), never a tap on one of its rows. */}
         {!external && <div className="row plan-sec-acts" style={{ gap: 6 }}>
           {seq.length > 0 && <button className="plan-textbtn" aria-pressed={editLoop} onClick={() => setEditLoop(e => !e)}>{editLoop ? t('Done') : t('Edit')}</button>}
-          <Button size="sm" variant="tinted" icon="plus" data-tour="plan-loop-add" aria-label={t('Add routine to the rotation')}
-            disabled={!S.routines.length} onClick={addToSeq}>{t('Add')}</Button>
+          {!isStudent && <Button size="sm" variant="tinted" icon="plus" data-tour="plan-loop-add" aria-label={t('Add routine to the rotation')}
+            disabled={!S.routines.length} onClick={addToSeq}>{t('Add')}</Button>}
         </div>}
       </div>
       {seq.length ? <div className="list plan-loop" ref={loopReorder.listRef}>
@@ -412,7 +456,7 @@ function Schedule({ S, update, nav, mode }) {
 
 /* ================================ Routines ================================ */
 
-function Routines({ S, update, nav }) {
+function Routines({ S, update, nav, isStudent }) {
   const [edit, setEdit] = useState(false)
   const [flash, setFlash] = useState(null)
   const swipe = workoutControls(S).swipeSets
@@ -456,10 +500,10 @@ function Routines({ S, update, nav }) {
 
   return <>
     <div className="row between plan-sec-h plan-routines-bar">
-      {routines.length > 0
+      {routines.length > 0 && !isStudent
         ? <button className="plan-textbtn" aria-pressed={edit} onClick={() => setEdit(e => !e)}>{edit ? t('Done') : t('Edit')}</button>
         : <span />}
-      <Button size="sm" variant="tinted" icon="plus" data-tour="plan-new" onClick={addRoutine}>{t('New routine')}</Button>
+      {!isStudent && <Button size="sm" variant="tinted" icon="plus" data-tour="plan-new" onClick={addRoutine}>{t('New routine')}</Button>}
     </div>
     {routines.length ? <>
       {edit
@@ -486,11 +530,190 @@ function Routines({ S, update, nav }) {
               flash={flash?.id === r.id ? flash.n : 0}>{row}</SwipeRow>
             : row
         })}</div>}
-      <p className="sect-f">{edit ? t('Drag to reorder. Tap the minus to delete.') : t('Tap a routine to edit it. Reorder and delete are behind Edit.')}</p>
+      <p className="sect-f">{isStudent ? 'Toca una rutina para ver los ejercicios o iniciarla.' : (edit ? t('Drag to reorder. Tap the minus to delete.') : t('Tap a routine to edit it. Reorder and delete are behind Edit.'))}</p>
     </> : <>
       <EmptyState icon="clipboard" title={t('No routines yet.')} text={t('Make one, or grab the starter plan to get going.')}>
         <Button variant="tinted" icon="clipboard" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
       </EmptyState>
     </>}
   </>
+}
+
+
+function StudentPlanManager({ student, S, nav }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const toast = useUI(s => s.toast)
+
+  const reload = () => {
+    setLoading(true)
+    api('/api/trainer/student-plan?id=' + encodeURIComponent(student.id))
+      .then(res => { setData(res); setLoading(false) })
+      .catch(e => { toast(e.message); setLoading(false) })
+  }
+
+  useEffect(() => { reload() }, [student.id])
+
+  const saveRoutines = (newRoutines, msg = 'Rutinas guardadas') => {
+    setData(d => ({ ...d, routines: newRoutines }))
+    api('/api/trainer/student-plan', {
+      method: 'PUT',
+      body: JSON.stringify({ id: student.id, routines: newRoutines, dayPlan: data?.dayPlan, rotation: data?.rotation })
+    }).then(() => toast(msg)).catch(e => toast(e.message))
+  }
+
+  const addRoutine = () => {
+    const r = { id: uid(), name: 'Nueva rutina', emoji: DEFAULT_GLYPH, ex: [] }
+    const next = [...(data?.routines || []), r]
+    saveRoutines(next, 'Rutina creada para ' + student.name)
+  }
+
+  const copyMyRoutine = () => {
+    if (!S.routines?.length) return toast('No tienes rutinas propias para copiar.')
+    menuSheet({
+      title: 'Copiar rutina a ' + student.name,
+      items: S.routines.map(myR => ({
+        icon: glyphOf(myR.emoji),
+        label: myR.name,
+        sub: myR.ex.length + ' ejercicios',
+        onClick: () => {
+          const copied = copyRoutine(myR, '')
+          const next = [...(data?.routines || []), copied]
+          saveRoutines(next, `"${copied.name}" copiada a ${student.name}`)
+        }
+      }))
+    })
+  }
+
+  const removeRoutine = (r) => {
+    confirmSheet({
+      title: `¿Eliminar "${r.name}"?`,
+      message: `Se eliminará la rutina para ${student.name}.`,
+      confirmText: 'Eliminar',
+      danger: true,
+      onConfirm: () => {
+        const next = data.routines.filter(x => x.id !== r.id)
+        saveRoutines(next, 'Rutina eliminada')
+      }
+    })
+  }
+
+  const addExToRoutine = (r) => {
+    exercisePicker((ex, quick) => {
+      const cfg = quick ? pickedExerciseConfig(ex.id) : null
+      if (cfg) {
+        const updated = data.routines.map(x => x.id === r.id ? { ...x, ex: [...x.ex, { id: ex.id, ...cfg }] } : x)
+        saveRoutines(updated, `"${ex.name || 'Ejercicio'}" añadido`)
+      } else {
+        exConfigSheet(ex, null, savedCfg => {
+          const updated = data.routines.map(x => x.id === r.id ? { ...x, ex: [...x.ex, { id: ex.id, ...savedCfg }] } : x)
+          saveRoutines(updated, `"${ex.name || 'Ejercicio'}" añadido`)
+        })
+      }
+    })
+  }
+
+  const removeEx = (r, exIndex) => {
+    const updated = data.routines.map(x => {
+      if (x.id !== r.id) return x
+      const newEx = [...x.ex]
+      newEx.splice(exIndex, 1)
+      return { ...x, ex: newEx }
+    })
+    saveRoutines(updated, 'Ejercicio eliminado')
+  }
+
+  const editEx = (r, e, exIndex) => {
+    const exObj = exOr(e.id)
+    exConfigSheet(exObj, e, savedCfg => {
+      const updated = data.routines.map(x => {
+        if (x.id !== r.id) return x
+        const newEx = [...x.ex]
+        newEx[exIndex] = { ...newEx[exIndex], ...savedCfg }
+        return { ...x, ex: newEx }
+      })
+      saveRoutines(updated, 'Ejercicio actualizado')
+    })
+  }
+
+  const changeIcon = (r) => {
+    glyphPicker(r.emoji, g => {
+      const updated = data.routines.map(x => x.id === r.id ? { ...x, emoji: g } : x)
+      saveRoutines(updated)
+    })
+  }
+
+  const renameRoutine = (r) => {
+    const name = window.prompt('Nuevo nombre para la rutina:', r.name)
+    if (name && name.trim()) {
+      const updated = data.routines.map(x => x.id === r.id ? { ...x, name: name.trim() } : x)
+      saveRoutines(updated)
+    }
+  }
+
+  if (loading) return <div className="adm-empty">Cargando rutinas de {student.name}…</div>
+
+  const routines = data?.routines || []
+
+  return <div className="student-plan-wrap" style={{ marginTop: 8 }}>
+    <div className="card" style={{ padding: 12, marginBottom: 14, background: 'var(--card-bg, rgba(255,255,255,0.04))' }}>
+      <div className="row between" style={{ alignItems: 'center' }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 'var(--fs-headline)' }}>Rutinas de {student.name}</div>
+          <div className="dim" style={{ fontSize: 'var(--fs-caption1)' }}>Los cambios que hagas aquí se sincronizan automáticamente en su teléfono.</div>
+        </div>
+        <span className="adm-pill acc" style={{ background: 'var(--accent)', color: 'var(--ink)' }}>Alumno</span>
+      </div>
+      <div className="row" style={{ gap: 8, marginTop: 12 }}>
+        <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>Nueva rutina</Button>
+        <Button size="sm" variant="secondary" icon="copy" onClick={copyMyRoutine}>Copiar de mis rutinas</Button>
+      </div>
+    </div>
+
+    {routines.length ? routines.map(r => (
+      <div key={r.id} className="card" style={{ marginBottom: 14, padding: '12px 14px' }}>
+        <div className="row between" style={{ alignItems: 'center', marginBottom: 10 }}>
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            <button className="iconbtn" onClick={() => changeIcon(r)} title="Cambiar ícono"><Icon name={glyphOf(r.emoji)} /></button>
+            <span style={{ fontWeight: 600, fontSize: 'var(--fs-title3)' }}>{r.name}</span>
+            <button className="iconbtn" onClick={() => renameRoutine(r)} title="Renombrar"><Icon name="edit" style={{ fontSize: 13 }} /></button>
+          </div>
+          <button className="iconbtn" style={{ color: 'var(--red)' }} onClick={() => removeRoutine(r)} title="Eliminar rutina"><Icon name="trash" /></button>
+        </div>
+
+        <div className="list" style={{ gap: 6 }}>
+          {(r.ex || []).map((e, idx) => {
+            const ex = exOr(e.id)
+            return (
+              <div key={idx} className="item" style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                <Thumb ex={ex} />
+                <div className="grow" style={{ marginInlineStart: 8 }}>
+                  <div className="tt" style={{ fontSize: 'var(--fs-subhead)' }}>{exerciseNameFor(ex)}</div>
+                  <div className="ss dim" style={{ fontSize: 'var(--fs-caption1)' }}>
+                    {e.sets || 3} series × {e.reps || '8–12'} reps {e.rest ? `· ${e.rest}s descanso` : ''}
+                  </div>
+                </div>
+                <div className="row" style={{ gap: 4 }}>
+                  <button className="iconbtn" onClick={() => editEx(r, e, idx)} title="Editar series y reps"><Icon name="sliderHorizontal" /></button>
+                  <button className="iconbtn" style={{ color: 'var(--red)' }} onClick={() => removeEx(r, idx)} title="Quitar ejercicio"><Icon name="minus" /></button>
+                </div>
+              </div>
+            )
+          })}
+          {!r.ex?.length && <div className="dim small" style={{ padding: 8, textAlign: 'center' }}>Esta rutina aún no tiene ejercicios.</div>}
+        </div>
+
+        <div style={{ marginTop: 10, textAlign: 'end' }}>
+          <Button size="sm" variant="tinted" icon="plus" onClick={() => addExToRoutine(r)}>Añadir ejercicio</Button>
+        </div>
+      </div>
+    )) : (
+      <EmptyState icon="clipboard" title={`No hay rutinas asignadas a ${student.name}`} text="Crea una nueva rutina o copia una de tus rutinas para comenzar.">
+        <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
+          <Button variant="primary" icon="plus" onClick={addRoutine}>Crear rutina</Button>
+          <Button variant="tinted" icon="copy" onClick={copyMyRoutine}>Copiar de mis rutinas</Button>
+        </div>
+      </EmptyState>
+    )}
+  </div>
 }

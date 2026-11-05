@@ -146,6 +146,21 @@ function UserDetail({ id, viewerOwner, onChanged, close }) {
       <div className="tile"><div className="l">Routines</div><div className="v v-sm">{d.routines.length}</div></div>
       <div className="tile"><div className="l">Last sync</div><div className="v" style={{ fontSize: 'var(--fs-subhead)' }}>{rel(d.lastSync)}</div></div>
     </div>
+    <div style={{ margin: '14px 0 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 'var(--radius, 10px)' }}>
+      <div>
+        <div className="small" style={{ fontWeight: 600 }}>Rol de entrenamiento</div>
+        <div className="dim" style={{ fontSize: 'var(--fs-caption2)' }}>{u.role === 'student' ? 'Solo puede entrenar y ver sus rutinas' : 'Puede entrenar y crear/editar rutinas para otros'}</div>
+      </div>
+      <select className="select" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 'var(--fs-footnote)' }} value={u.role || 'student'} onChange={e => {
+        const newRole = e.target.value;
+        api('/api/trainer/set-role', { method: 'POST', body: JSON.stringify({ userId: u.id, role: newRole }) })
+          .then(() => { toast('Rol actualizado a ' + (newRole === 'trainer' ? 'Entrenador' : 'Alumno')); onChanged(); close(); })
+          .catch(err => toast(err.message));
+      }}>
+        <option value="trainer">Entrenador</option>
+        <option value="student">Alumno</option>
+      </select>
+    </div>
     {viewerOwner && !u.owner && !u.disabled && <>
       <button className="btn" style={{ margin: '12px 0 4px' }}
         onClick={() => u.admin
@@ -396,7 +411,7 @@ export default function Admin() {
       <div className="adm-lead">Everyone with a profile on this instance. Tap one to see their activity, to disable the account (nothing is deleted) or to delete it with all their data for good.</div>
       <div className="list">
         {(users || []).map(u => <div key={u.id} className="item" onClick={() => openUser(u.id)} style={u.disabled ? { opacity: .55 } : null}>
-          <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginInlineEnd: 5 }} />}{u.name} {u.admin && <span className="adm-pill acc" style={{ marginInlineStart: 4 }}>{u.owner ? 'owner' : 'admin'}</span>}{u.disabled && <span className="adm-pill bad" style={{ marginInlineStart: 4 }}>disabled</span>}</div>
+          <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginInlineEnd: 5 }} />}{u.name} {u.role && <span className="adm-pill" style={{ marginInlineStart: 4, background: u.role === 'trainer' ? 'var(--blue)' : 'var(--accent)', color: 'var(--ink)' }}>{u.role === 'trainer' ? 'Entrenador' : 'Alumno'}</span>}{u.admin && <span className="adm-pill acc" style={{ marginInlineStart: 4 }}>{u.owner ? 'owner' : 'admin'}</span>}{u.disabled && <span className="adm-pill bad" style={{ marginInlineStart: 4 }}>disabled</span>}</div>
             <div className="ss">{u.live ? 'training now · ' + u.live.name : u.workouts + ' workouts' + (u.lastWorkout ? ' · last ' + fmtDate(u.lastWorkout) : '') + ' · last sync ' + rel(u.lastSync)}</div>
             {u.email && <div className="ss" title="sign-in e-mail">{u.email}</div>}</div>
           {u.hasPush && <Icon name="bell" title="push notifications on" style={{ fontSize: 'var(--fs-subhead)', color: 'var(--label-3)' }} />}<Icon name="chevronRight" className="chev" />

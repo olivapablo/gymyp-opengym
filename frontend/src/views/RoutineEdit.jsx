@@ -366,6 +366,8 @@ export default function RoutineEdit() {
   const nav = useNavigate()
   const { id } = useParams()
   const S = useStore(s => s.S)
+  const user = useStore(s => s.user)
+  const isStudent = user?.role === 'student'
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
   const r = S.routines.find(x => x.id === id)
@@ -462,10 +464,12 @@ export default function RoutineEdit() {
     <div className="hdr">
       <button className="iconbtn" data-back="/plan" data-tour="routine-back" onClick={() => nav('/plan')} aria-label={t('Plan')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, margin: '0 12px' }}>
-        <input className="input" data-tour="routine-name" aria-label={t('Routine name')} defaultValue={r.name} style={{ fontWeight: 600, fontSize: 'var(--fs-title3)', letterSpacing: '-.021em' }}
-          onChange={e => update(s => { s.routines.find(x => x.id === id).name = e.target.value.trim() || t('Routine') })} />
+        {isStudent ? <div style={{ fontWeight: 600, fontSize: 'var(--fs-title3)', letterSpacing: '-.021em' }}>{r.name}</div>
+        : <input className="input" data-tour="routine-name" aria-label={t('Routine name')} defaultValue={r.name} style={{ fontWeight: 600, fontSize: 'var(--fs-title3)', letterSpacing: '-.021em' }}
+          onChange={e => update(s => { s.routines.find(x => x.id === id).name = e.target.value.trim() || t('Routine') })} />}
       </div>
-      <button className="iconbtn" aria-label={t('Pick an icon')} onClick={() => glyphPicker(r.emoji, g => update(s => { s.routines.find(x => x.id === id).emoji = g }))}><Icon name={glyphOf(r.emoji)} /></button>
+      {isStudent ? <span className="iconbtn" style={{ opacity: .8 }}><Icon name={glyphOf(r.emoji)} /></span>
+      : <button className="iconbtn" aria-label={t('Pick an icon')} onClick={() => glyphPicker(r.emoji, g => update(s => { s.routines.find(x => x.id === id).emoji = g }))}><Icon name={glyphOf(r.emoji)} /></button>}
     </div>
 
     <div className="sect-b" style={{ marginBottom: 16 }}>
@@ -503,7 +507,7 @@ export default function RoutineEdit() {
         had to be scrolled to the bottom before anything could be added. */}
     <div className="row between plan-sec-h routine-ex-h">
       <h4 className="sec">{t('Exercises')}</h4>
-      <Button size="sm" variant="tinted" icon="plus" data-tour="routine-add" onClick={addExercise}>{t('Add exercise')}</Button>
+      {!isStudent && <Button size="sm" variant="tinted" icon="plus" data-tour="routine-add" onClick={addExercise}>{t('Add exercise')}</Button>}
     </div>
     {r.ex.length ? <div ref={reorder.listRef} onClickCapture={reorder.onClickCapture}
       className={'list routine-list' + (reorder.drag ? ' is-reordering' : '')}>{r.ex.map((e, i) => {
@@ -523,11 +527,11 @@ export default function RoutineEdit() {
       // (.tap-main, card dismiss pass), with the rail's buttons above it, so pressing Move up
       // neither opens the sheet nor fills the row. The long press treats it as the row
       // (data-row-open, useRoutineReorder).
-      const openEx = () => exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...(x[i].sg ? { sgName: x[i].sgName, sgRest: x[i].sgRest } : {}), ...cfg }; cleanupSg(x) }), removeHere, r, null, () => replace(i), undefined, { backups: true })
+      const openEx = () => { if (isStudent) return; exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...(x[i].sg ? { sgName: x[i].sgName, sgRest: x[i].sgRest } : {}), ...cfg }; cleanupSg(x) }), removeHere, r, null, () => replace(i), undefined, { backups: true }); }
       const item = <div className={'item tap-host' + (inSS.has(i) ? ' in-ss' : '')}>
           {/* Shown on pointer devices only (index.css .routine-grip); the Move buttons and the
               long press stay the way in for a keyboard and a finger. */}
-          <span className="routine-grip" data-drag-handle aria-hidden="true" title={t('Reorder exercises')}><Icon name="grip" /></span>
+          {!isStudent && <span className="routine-grip" data-drag-handle aria-hidden="true" title={t('Reorder exercises')}><Icon name="grip" /></span>}
           {ssPos.has(i) && <span className="ss-pos" aria-label={t('Superset position {0}', ssPos.get(i))}>{ssPos.get(i)}</span>}
           <Thumb ex={ex} />
           <button type="button" className="grow item-open tap-main" data-row-open aria-haspopup="dialog" onClick={openEx}><span className={`tt ${exerciseNameClass(ex)}`}>{exerciseNameFor(ex)}</span><span className="ss">{exLine(viewTarget(S, e.id, e), exUnitOf(S, e.id), speedUnitOf(S))}</span>
@@ -536,12 +540,12 @@ export default function RoutineEdit() {
           {/* One rail (P4): the superset link beside the two move buttons, each a finger-sized
               target (index.css .re-rail). The first exercise has nothing above to link to, so its
               link cell stays empty and the arrows keep their place down the list. */}
-          <div className="re-rail">
+          {!isStudent && <div className="re-rail">
             {i > 0 ? <button className={'iconbtn re-link' + (linkedPrev ? ' on-ss' : '')} title={t('Superset with exercise above')} aria-label={t('Superset with exercise above')} aria-pressed={!!linkedPrev} onClick={() => toggleLink(i)}><Icon name="link" /></button>
               : <span className="re-link" aria-hidden="true" />}
             <button className="iconbtn re-up" aria-label={t('Move up')} title={leavesUp ? t('Move out of the superset') : t('Move up')} disabled={!moveRoutineEntry(r.ex, i, -1)} onClick={() => move(i, -1)}><Icon name="chevronUp" /></button>
             <button className="iconbtn re-down" aria-label={t('Move down')} title={leavesDown ? t('Move out of the superset') : t('Move down')} disabled={!moveRoutineEntry(r.ex, i, 1)} onClick={() => move(i, 1)}><Icon name="chevronDown" /></button>
-          </div>
+          </div>}
         </div>
       return <div key={i} data-routine-row data-ex-index={i} data-tour={i === 0 ? 'routine-ex' : undefined}
         className={'routine-drag-row' + (isDragging ? ' is-dragging' : '')}

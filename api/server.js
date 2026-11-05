@@ -1191,7 +1191,9 @@ function loginTarget(body) {
 }
 const acctKey = u => 'acct:' + u.id;
 const passkeyCount = u => db.creds.filter(c => c.userId === u.id).length;
-const publicUser = u => ({ id: u.id, name: u.name, admin: isAdmin(u), ...(isOwner(u) ? { owner: true } : {}) });
+const isTrainer = u => !!u && (isAdmin(u) || u.role === 'trainer' || (!u.role && db.users[0]?.id === u.id));
+const roleOf = u => u.role || (isTrainer(u) ? 'trainer' : 'student');
+const publicUser = u => ({ id: u.id, name: u.name, admin: isAdmin(u), role: roleOf(u), ...(isOwner(u) ? { owner: true } : {}) });
 const POLICY_ERRORS = {
   'too-short': `the password needs at least ${MIN_LENGTH} characters`,
   'too-long': `the password can have at most ${MAX_LENGTH} characters`,
@@ -2983,7 +2985,78 @@ const routes = {
   /* ---------- photos & videos ---------- */
   // Absent, not refusing, when MEDIA_UPLOADS=0: a 404 is what a server from before the feature
   // answers, and the client already treats that as "this server does not store them".
-  ...(MEDIA_ON ? mediaRoutes : {})
+  ...(MEDIA_ON ? mediaRoutes : {}),
+
+  /* ---------- Trainer & Student plan management ---------- */
+  'GET /api/trainer/students': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!isTrainer(user)) return json(res, 403, { error: 'only trainers can view student list' });
+    const students = db.users.map(u => ({
+      id: u.id,
+      name: u.name,
+      role: roleOf(u),
+      admin: isAdmin(u),
+      owner: isOwner(u),
+      created: u.created || null
+    }));
+    json(res, 200, { students });
+  },
+
+  'POST /api/trainer/set-role': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!isTrainer(user)) return json(res, 403, { error: 'only trainers can change roles' });
+    const body = await readBody(req);
+    const { userId, role } = body || {};
+    if (!['trainer', 'student'].includes(role)) return json(res, 400, { error: 'invalid role, must be trainer or student' });
+    const target = db.users.find(u => u.id === userId);
+    if (!target) return json(res, 404, { error: 'user not found' });
+    target.role = role;
+    saveDb();
+    audit(req, 'trainer.set-role', { user, target, role });
+    json(res, 200, { ok: true, user: publicUser(target) });
+  },
+
+  'GET /api/trainer/student-plan': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!isTrainer(user)) return json(res, 403, { error: 'only trainers can view student plan' });
+    const id = new URL(req.url, 'http://x').searchParams.get('id');
+    const target = db.users.find(u => u.id === id);
+    if (!target) return json(res, 404, { error: 'user not found' });
+    const S = readState(target.id) || {};
+    json(res, 200, {
+      student: { id: target.id, name: target.name, role: roleOf(target) },
+      routines: records(S.routines),
+      dayPlan: S.dayPlan || {},
+      rotation: S.rotation || null,
+      scheduleMode: S.scheduleMode || 'week',
+      rev: S._rev || 0
+    });
+  },
+
+  'PUT /api/trainer/student-plan': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!isTrainer(user)) return json(res, 403, { error: 'only trainers can edit student plan' });
+    const body = await readBody(req);
+    const { id, routines, dayPlan, rotation, scheduleMode } = body || {};
+    const target = db.users.find(u => u.id === id);
+    if (!target) return json(res, 404, { error: 'user not found' });
+    const S = readStateStrict(target.id);
+    if (S === UNREADABLE) return json(res, 503, { error: 'state unreadable' });
+    const state = S || { _rev: 0 };
+    if (Array.isArray(routines)) state.routines = routines;
+    if (dayPlan !== undefined) state.dayPlan = dayPlan;
+    if (rotation !== undefined) state.rotation = rotation;
+    if (scheduleMode !== undefined) state.scheduleMode = scheduleMode;
+    state._rev = (state._rev || 0) + 1;
+    state._ts = Date.now();
+    durableWrite(stateFile(target.id), JSON.stringify(state));
+    audit(req, 'trainer.update-student-plan', { user, target });
+    json(res, 200, { ok: true, rev: state._rev });
+  }
 };
 
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */

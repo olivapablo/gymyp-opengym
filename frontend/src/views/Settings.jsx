@@ -1191,6 +1191,8 @@ export default function Settings({ page = null, find = null, via = null, entryKe
           Admin and Disconnect sit in the same block; a browser's account rows follow in their own. */}
       {user && !DEMO && <ServerSyncSection>
         {MOBILE && <>
+          <Row icon="personCircle" iconTint={user.role === 'trainer' ? 'var(--blue)' : 'var(--acc)'} title="Rol en la app" subtitle={user.role === 'trainer' ? 'Entrenador (gestión de rutinas)' : 'Alumno (solo lectura y entrenar)'} />
+          {(user.admin || user.role === 'trainer') && <Row icon="person2" iconTint="var(--indigo)" title="Alumnos y Roles" subtitle="Administrar perfiles y roles" accessory="chevron" onClick={() => nav('/admin')} />}
           {user.admin && <Row icon="crown" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
           {/* A code to sign in on a computer (#551), behind the same proof as in a browser. */}
           <DeviceLinkRow state={passkeys.st} />
@@ -1215,6 +1217,8 @@ export default function Settings({ page = null, find = null, via = null, entryKe
           <Row icon="rocket" iconTint="var(--indigo)" title={t('Self-host openGym')} subtitle={t('Passkey sign-in, sync across your devices, your own data.')} accessory="chevron"
             onClick={() => window.open(REPO, '_blank', 'noopener')} />
         </> : user ? <>
+          <Row icon="personCircle" iconTint={user.role === 'trainer' ? 'var(--blue)' : 'var(--acc)'} title="Rol en la app" subtitle={user.role === 'trainer' ? 'Entrenador (gestión de rutinas)' : 'Alumno (solo lectura y entrenar)'} />
+          {(user.admin || user.role === 'trainer') && <Row icon="person2" iconTint="var(--indigo)" title="Alumnos y Roles" subtitle="Administrar perfiles y roles" accessory="chevron" onClick={() => nav('/admin')} />}
           {user.admin && <Row icon="crown" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
           <PasskeysRow state={passkeys.st} changed={credsChanged} />
           <DeviceLinkRow state={passkeys.st} />
