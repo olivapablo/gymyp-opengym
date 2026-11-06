@@ -2,7 +2,7 @@
 // Se llama UNA SOLA VEZ al arrancar la app (en main.jsx).
 
 import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { auth, db } from './firebase.js'
 import { useStore } from '../store/useStore.js'
 import { markFirebaseReady } from './firebase-ready.js'
@@ -25,15 +25,20 @@ export function initFirebaseAuth() {
 
     try {
       // Buscar el perfil en Firestore: /users/{uid}
-      const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
+      const userDocRef = doc(db, 'users', firebaseUser.uid)
+      let snap = await getDoc(userDocRef)
       if (!snap.exists()) {
-        // Perfil no existe (write de Firestore falló al registrarse)
-        await signOut(auth)
-        markFirebaseReady()
-        store.setUser(null)
-        return
+        // Si entra por Google o el perfil no existía, lo creamos automáticamente
+        const nuevoPerfil = {
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario',
+          email: firebaseUser.email || '',
+          role: 'student',
+          createdAt: new Date().toISOString(),
+        }
+        await setDoc(userDocRef, nuevoPerfil)
+        snap = await getDoc(userDocRef)
       }
-      const data = snap.data()
+      const data = snap.data() || {}
       // Armar el objeto de usuario que espera el store
       const user = {
         id: firebaseUser.uid,
