@@ -29,6 +29,8 @@ import { RTL_LANGS } from '../lib/i18n-core.js'
 import { DEFAULT_TEMPLATE_ID } from '../lib/structuralBalanceTemplates.js'
 import { firebaseReady } from '../lib/firebase-ready.js'
 import { saveStateToFirestore, loadStateFromFirestore } from '../lib/firestore-sync.js'
+import { signOut as firebaseSignOut } from 'firebase/auth'
+import { auth } from '../lib/firebase.js'
 
 import { WC_DEFAULT } from '../lib/workout-controls.js'
 import { sanitizeAccent } from '../lib/accent.js'
@@ -954,7 +956,8 @@ export const useStore = create((set, get) => {
   // Everything a sign-out leaves behind on this device, whichever way it was triggered. The owner
   // goes before the wiped copy is written: another tab must learn that the copy is nobody's before
   // it sees the new copy, or it joins its own copy of the account into it (QA 2026-10-06).
-  const clearLocalSession = () => {
+  const clearLocalSession = async () => {
+    try { await firebaseSignOut(auth) } catch (e) {}
     const hadMedia = keptHashes(get().S).size > 0
     get().setUser(null)
     localStorage.removeItem('gym_guest')
@@ -1811,7 +1814,7 @@ export const useStore = create((set, get) => {
       if (!left.owed && !(await stashActive())) return { owed: true, count: 0, stashed: false }
       // The device is signed out either way. A request that did not get through leaves the cookie
       // behind, still valid, so the logout is owed until the server answers it (see boot).
-      try { await api('/api/logout', { method: 'POST', body: '{}' }) } catch (e) { if (!MOBILE) logoutOwed(true) }
+      try { await firebaseSignOut(auth) } catch (e) {}
       await clearLocalSession()
       return left.owed ? owedResult(left, { stashed: true }) : { owed: false }
     },
