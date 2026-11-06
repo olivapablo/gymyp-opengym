@@ -1869,7 +1869,7 @@ export const useStore = create((set, get) => {
       const left = get().unsyncedChanges()
       if (left.owed && !force) return owedResult(left)
       await stopTimers()
-      await api('/api/logout/all', { method: 'POST', body: '{}' })
+      await firebaseSignOut(auth)
       if (left.owed && !(await stashOwed())) return owedResult(left, { stashed: false })
       if (!left.owed && !(await stashActive())) return { owed: true, count: 0, stashed: false }
       await clearLocalSession()
