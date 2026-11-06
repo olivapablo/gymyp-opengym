@@ -1,5 +1,8 @@
 import { useEffect } from 'react'
 import { api } from '../lib/api.js'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../lib/firebase.js'
+import { saveStateToFirestore, loadStateFromFirestore } from '../lib/firestore-sync.js'
 import { exercisePicker, exConfigSheet, glyphPicker } from '../sheets.jsx'
 import { exOr } from '../lib/exercises.js'
 import { pickedExerciseConfig } from '../lib/history.js'
@@ -153,9 +156,13 @@ export default function Plan() {
 
   useEffect(() => {
     if (isTrainer) {
-      api('/api/trainer/students')
-        .then(res => {
-          const st = (res.students || []).filter(u => u.id !== user?.id)
+      getDocs(collection(db, 'users'))
+        .then(snap => {
+          const st = []
+          snap.forEach(d => {
+            const u = { id: d.id, ...d.data() }
+            if (u.id !== user?.id && u.role === 'student') st.push(u)
+          })
           setStudents(st)
         })
         .catch(() => {})
@@ -545,21 +552,29 @@ function StudentPlanManager({ student, S, nav }) {
   const [loading, setLoading] = useState(true)
   const toast = useUI(s => s.toast)
 
-  const reload = () => {
+  const reload = async () => {
     setLoading(true)
-    api('/api/trainer/student-plan?id=' + encodeURIComponent(student.id))
-      .then(res => { setData(res); setLoading(false) })
-      .catch(e => { toast(e.message); setLoading(false) })
+    try {
+      const state = await loadStateFromFirestore(student.id)
+      setData(state || { routines: [], dayPlan: {}, rotation: null })
+    } catch (e) {
+      toast(e.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { reload() }, [student.id])
 
-  const saveRoutines = (newRoutines, msg = 'Rutinas guardadas') => {
-    setData(d => ({ ...d, routines: newRoutines }))
-    api('/api/trainer/student-plan', {
-      method: 'PUT',
-      body: JSON.stringify({ id: student.id, routines: newRoutines, dayPlan: data?.dayPlan, rotation: data?.rotation })
-    }).then(() => toast(msg)).catch(e => toast(e.message))
+  const saveRoutines = async (newRoutines, msg = 'Rutinas guardadas') => {
+    const updated = { ...(data || {}), routines: newRoutines, _ts: Date.now() }
+    setData(updated)
+    try {
+      await saveStateToFirestore(student.id, updated)
+      toast(msg)
+    } catch (e) {
+      toast(e.message)
+    }
   }
 
   const addRoutine = () => {
