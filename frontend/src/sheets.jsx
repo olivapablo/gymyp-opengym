@@ -2977,15 +2977,18 @@ export const dayNoteSheet = iso => ui().openSheet(close => <DayNote iso={iso} cl
 // take them off (two or more make a combined day, docs/dev/COMBINE_ROUTINES.md), in the order
 // tapped, which is the order the session runs them; "Rest day" clears it. The sheet stays open
 // for a second pick, so "Done" closes it. The weekday never stores [] (the key goes instead).
-function DayAssign({ day, close }) {
-  const st = useStore(s => s.S)
-  const cur = [].concat(st.week[day] || [])
-  const toggle = id => update(s => {
+function DayAssign({ day, close, customState, customUpdate }) {
+  const globalSt = useStore(s => s.S)
+  const st = customState || globalSt
+  const doUpdate = customUpdate || update
+  const cur = [].concat(st.week?.[day] || [])
+  const toggle = id => doUpdate(s => {
+    if (!s.week) s.week = {}
     const ids = [].concat(s.week[day] || [])
     const next = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]
     if (next.length) s.week[day] = next; else delete s.week[day]
   })
-  const rest = () => { update(s => { delete s.week[day] }); close() }
+  const rest = () => { doUpdate(s => { if (s.week) delete s.week[day] }); close() }
   return <>
     <h3 style={{ marginBottom: 2 }}>{t(DAYN[day])}</h3>
     <div className="muted small" style={{ marginBottom: 10 }}>{t('Pick one routine, or more to train them together.')}</div>
@@ -3004,7 +3007,7 @@ function DayAssign({ day, close }) {
     <Button variant="primary" onClick={close}>{t('Done')}</Button>
   </>
 }
-export const dayAssignSheet = day => ui().openSheet(close => <DayAssign day={day} close={close} />)
+export const dayAssignSheet = (day, customState, customUpdate) => ui().openSheet(close => <DayAssign day={day} close={close} customState={customState} customUpdate={customUpdate} />)
 
 /* ============================ workout detail ============================ */
 // Correcting when a saved session happened: typed in from another app, or logged on the wrong

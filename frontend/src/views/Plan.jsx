@@ -200,7 +200,43 @@ export default function Plan() {
   }
   const pickFile = ev => { const f = ev.target.files[0]; ev.target.value = ''; importPlanFile(f) }
 
-  const mode = scheduleModeOf(S)
+  const [studentState, setStudentState] = useState(null)
+  const [studentLoading, setStudentLoading] = useState(false)
+  const activeStudent = isTrainer && activeStudentId ? students.find(x => x.id === activeStudentId) : null
+
+  useEffect(() => {
+    if (!activeStudent) {
+      setStudentState(null)
+      return
+    }
+    setStudentLoading(true)
+    loadStateFromFirestore(activeStudent.id)
+      .then(st => {
+        setStudentState(st || { routines: [], week: {}, dayPlan: {}, rotation: null })
+      })
+      .catch(e => {
+        useUI.getState().toast(e.message)
+      })
+      .finally(() => setStudentLoading(false))
+  }, [activeStudent?.id])
+
+  const studentUpdate = async fn => {
+    if (!activeStudent) return
+    const prev = studentState || { routines: [], week: {}, dayPlan: {}, rotation: null }
+    const copy = structuredClone(prev)
+    fn(copy)
+    copy._ts = Date.now()
+    setStudentState(copy)
+    try {
+      await saveStateToFirestore(activeStudent.id, copy)
+    } catch (e) {
+      useUI.getState().toast(e.message)
+    }
+  }
+
+  const effectiveS = activeStudent && studentState ? studentState : S
+  const effectiveUpdate = activeStudent ? studentUpdate : update
+  const effectiveMode = scheduleModeOf(effectiveS)
   // A running programme wrote the schedule below (lib/programmes.js); the strip says whose it is.
   const progChip = programmeChip(S)
 
@@ -247,7 +283,7 @@ export default function Plan() {
 
 /* ================================ Schedule ================================ */
 
-function Schedule({ S, update, nav, mode, isStudent }) {
+function Schedule({ S, update, nav, mode, isStudent, activeStudent }) {
   const [editLoop, setEditLoop] = useState(false)
   /* The rotation editor. What it shows is the live pass when there is one, otherwise the saved
      sequence — S.rotation is only a definition, so the pass is the truth whenever it exists.
@@ -334,7 +370,7 @@ function Schedule({ S, update, nav, mode, isStudent }) {
   // One weekday: what is on it at a glance, and a tap to change it (dayAssignSheet picks one
   // routine, several for a combined day, or a rest day).
   const dayRow = (d, rs = dayRoutines(d)) => {
-    return <div key={d} className="item plan-day" data-day={d} aria-label={t(DAYN[d])} {...tappable(() => dayAssignSheet(d))}>
+    return <div key={d} className="item plan-day" data-day={d} aria-label={t(DAYN[d])} {...tappable(() => dayAssignSheet(d, S, update))}>
       <span className={'plan-day-n' + (d === todayDow ? ' today' : '')} aria-hidden="true">{t(DAYS[d])}</span>
       <span className={'lrow-i' + (rs.length ? '' : ' rest')}><Icon name={rs.length ? glyphOf(rs[0].emoji) : 'moon'} /></span>
       <div className="grow">
@@ -463,7 +499,7 @@ function Schedule({ S, update, nav, mode, isStudent }) {
 
 /* ================================ Routines ================================ */
 
-function Routines({ S, update, nav, isStudent }) {
+function Routines({ S, update, nav, isStudent, activeStudent }) {
   const [edit, setEdit] = useState(false)
   const [flash, setFlash] = useState(null)
   const swipe = workoutControls(S).swipeSets
@@ -484,7 +520,21 @@ function Routines({ S, update, nav, isStudent }) {
   }
   // The same delete as RoutineEdit's "Delete routine" button (lib/routines.js), with an Undo in
   // place of its confirm (v1.3.11): the swipe and the edit-mode minus both land here.
-  const remove = r => deleteRoutineWithUndo(r.id)
+  const remove = r => {
+    if (activeStudent) {
+      confirmSheet({
+        title: `¿Eliminar "${r.name}"?`,
+        message: `Se eliminará la rutina para ${activeStudent.name}.`,
+        confirmText: 'Eliminar',
+        danger: true,
+        onConfirm: () => {
+          update(s => { s.routines = (s.routines || []).filter(x => x.id !== r.id) })
+        }
+      })
+      return
+    }
+    deleteRoutineWithUndo(r.id)
+  }
   // The swipe's other side: a copy right below the original, named the way "Copy routine" names
   // one, and staying on this list rather than opening it.
   const duplicate = r => {
@@ -547,188 +597,3 @@ function Routines({ S, update, nav, isStudent }) {
 }
 
 
-function StudentPlanManager({ student, S, nav }) {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const toast = useUI(s => s.toast)
-
-  const reload = async () => {
-    setLoading(true)
-    try {
-      const state = await loadStateFromFirestore(student.id)
-      setData(state || { routines: [], dayPlan: {}, rotation: null })
-    } catch (e) {
-      toast(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { reload() }, [student.id])
-
-  const saveRoutines = async (newRoutines, msg = 'Rutinas guardadas') => {
-    const updated = { ...(data || {}), routines: newRoutines, _ts: Date.now() }
-    setData(updated)
-    try {
-      await saveStateToFirestore(student.id, updated)
-      toast(msg)
-    } catch (e) {
-      toast(e.message)
-    }
-  }
-
-  const addRoutine = () => {
-    const r = { id: uid(), name: 'Nueva rutina', emoji: DEFAULT_GLYPH, ex: [] }
-    const next = [...(data?.routines || []), r]
-    saveRoutines(next, 'Rutina creada para ' + student.name)
-  }
-
-  const copyMyRoutine = () => {
-    if (!S.routines?.length) return toast('No tienes rutinas propias para copiar.')
-    menuSheet({
-      title: 'Copiar rutina a ' + student.name,
-      items: S.routines.map(myR => ({
-        icon: glyphOf(myR.emoji),
-        label: myR.name,
-        sub: myR.ex.length + ' ejercicios',
-        onClick: () => {
-          const copied = copyRoutine(myR, '')
-          const next = [...(data?.routines || []), copied]
-          saveRoutines(next, `"${copied.name}" copiada a ${student.name}`)
-        }
-      }))
-    })
-  }
-
-  const removeRoutine = (r) => {
-    confirmSheet({
-      title: `¿Eliminar "${r.name}"?`,
-      message: `Se eliminará la rutina para ${student.name}.`,
-      confirmText: 'Eliminar',
-      danger: true,
-      onConfirm: () => {
-        const next = data.routines.filter(x => x.id !== r.id)
-        saveRoutines(next, 'Rutina eliminada')
-      }
-    })
-  }
-
-  const addExToRoutine = (r) => {
-    exercisePicker((ex, quick) => {
-      const cfg = quick ? pickedExerciseConfig(ex.id) : null
-      if (cfg) {
-        const updated = data.routines.map(x => x.id === r.id ? { ...x, ex: [...x.ex, { id: ex.id, ...cfg }] } : x)
-        saveRoutines(updated, `"${ex.name || 'Ejercicio'}" añadido`)
-      } else {
-        exConfigSheet(ex, null, savedCfg => {
-          const updated = data.routines.map(x => x.id === r.id ? { ...x, ex: [...x.ex, { id: ex.id, ...savedCfg }] } : x)
-          saveRoutines(updated, `"${ex.name || 'Ejercicio'}" añadido`)
-        })
-      }
-    })
-  }
-
-  const removeEx = (r, exIndex) => {
-    const updated = data.routines.map(x => {
-      if (x.id !== r.id) return x
-      const newEx = [...x.ex]
-      newEx.splice(exIndex, 1)
-      return { ...x, ex: newEx }
-    })
-    saveRoutines(updated, 'Ejercicio eliminado')
-  }
-
-  const editEx = (r, e, exIndex) => {
-    const exObj = exOr(e.id)
-    exConfigSheet(exObj, e, savedCfg => {
-      const updated = data.routines.map(x => {
-        if (x.id !== r.id) return x
-        const newEx = [...x.ex]
-        newEx[exIndex] = { ...newEx[exIndex], ...savedCfg }
-        return { ...x, ex: newEx }
-      })
-      saveRoutines(updated, 'Ejercicio actualizado')
-    })
-  }
-
-  const changeIcon = (r) => {
-    glyphPicker(r.emoji, g => {
-      const updated = data.routines.map(x => x.id === r.id ? { ...x, emoji: g } : x)
-      saveRoutines(updated)
-    })
-  }
-
-  const renameRoutine = (r) => {
-    const name = window.prompt('Nuevo nombre para la rutina:', r.name)
-    if (name && name.trim()) {
-      const updated = data.routines.map(x => x.id === r.id ? { ...x, name: name.trim() } : x)
-      saveRoutines(updated)
-    }
-  }
-
-  if (loading) return <div className="adm-empty">Cargando rutinas de {student.name}…</div>
-
-  const routines = data?.routines || []
-
-  return <div className="student-plan-wrap" style={{ marginTop: 8 }}>
-    <div className="card" style={{ padding: 12, marginBottom: 14, background: 'var(--card-bg, rgba(255,255,255,0.04))' }}>
-      <div className="row between" style={{ alignItems: 'center' }}>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 'var(--fs-headline)' }}>Rutinas de {student.name}</div>
-          <div className="dim" style={{ fontSize: 'var(--fs-caption1)' }}>Los cambios que hagas aquí se sincronizan automáticamente en su teléfono.</div>
-        </div>
-        <span className="adm-pill acc" style={{ background: 'var(--accent)', color: 'var(--ink)' }}>Alumno</span>
-      </div>
-      <div className="row" style={{ gap: 8, marginTop: 12 }}>
-        <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>Nueva rutina</Button>
-        <Button size="sm" variant="secondary" icon="copy" onClick={copyMyRoutine}>Copiar de mis rutinas</Button>
-      </div>
-    </div>
-
-    {routines.length ? routines.map(r => (
-      <div key={r.id} className="card" style={{ marginBottom: 14, padding: '12px 14px' }}>
-        <div className="row between" style={{ alignItems: 'center', marginBottom: 10 }}>
-          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-            <button className="iconbtn" onClick={() => changeIcon(r)} title="Cambiar ícono"><Icon name={glyphOf(r.emoji)} /></button>
-            <span style={{ fontWeight: 600, fontSize: 'var(--fs-title3)' }}>{r.name}</span>
-            <button className="iconbtn" onClick={() => renameRoutine(r)} title="Renombrar"><Icon name="edit" style={{ fontSize: 13 }} /></button>
-          </div>
-          <button className="iconbtn" style={{ color: 'var(--red)' }} onClick={() => removeRoutine(r)} title="Eliminar rutina"><Icon name="trash" /></button>
-        </div>
-
-        <div className="list" style={{ gap: 6 }}>
-          {(r.ex || []).map((e, idx) => {
-            const ex = exOr(e.id)
-            return (
-              <div key={idx} className="item" style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
-                <Thumb ex={ex} />
-                <div className="grow" style={{ marginInlineStart: 8 }}>
-                  <div className="tt" style={{ fontSize: 'var(--fs-subhead)' }}>{exerciseNameFor(ex)}</div>
-                  <div className="ss dim" style={{ fontSize: 'var(--fs-caption1)' }}>
-                    {e.sets || 3} series × {e.reps || '8–12'} reps {e.rest ? `· ${e.rest}s descanso` : ''}
-                  </div>
-                </div>
-                <div className="row" style={{ gap: 4 }}>
-                  <button className="iconbtn" onClick={() => editEx(r, e, idx)} title="Editar series y reps"><Icon name="sliderHorizontal" /></button>
-                  <button className="iconbtn" style={{ color: 'var(--red)' }} onClick={() => removeEx(r, idx)} title="Quitar ejercicio"><Icon name="minus" /></button>
-                </div>
-              </div>
-            )
-          })}
-          {!r.ex?.length && <div className="dim small" style={{ padding: 8, textAlign: 'center' }}>Esta rutina aún no tiene ejercicios.</div>}
-        </div>
-
-        <div style={{ marginTop: 10, textAlign: 'end' }}>
-          <Button size="sm" variant="tinted" icon="plus" onClick={() => addExToRoutine(r)}>Añadir ejercicio</Button>
-        </div>
-      </div>
-    )) : (
-      <EmptyState icon="clipboard" title={`No hay rutinas asignadas a ${student.name}`} text="Crea una nueva rutina o copia una de tus rutinas para comenzar.">
-        <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
-          <Button variant="primary" icon="plus" onClick={addRoutine}>Crear rutina</Button>
-          <Button variant="tinted" icon="copy" onClick={copyMyRoutine}>Copiar de mis rutinas</Button>
-        </div>
-      </EmptyState>
-    )}
-  </div>
-}
