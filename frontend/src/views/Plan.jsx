@@ -10,7 +10,7 @@ import { exerciseNameFor } from '../lib/i18n.js'
 import { Thumb } from '../components/Media.jsx'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStore } from '../store/useStore.js'
+import { useStore, DEF } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { DAYN, DAYS, weekOrder, weekStartOf, uid, exCount, routineCount, todayISO, fmtDate } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
@@ -234,7 +234,17 @@ export default function Plan() {
     }
   }
 
-  const effectiveS = activeStudent && studentState ? studentState : S
+  const sanitizeState = st => {
+    if (!st) return { ...DEF, routines: [], week: {}, dayPlan: {} }
+    return {
+      ...DEF,
+      ...st,
+      routines: Array.isArray(st.routines) ? st.routines : [],
+      week: st.week && typeof st.week === 'object' ? st.week : {},
+      dayPlan: st.dayPlan && typeof st.dayPlan === 'object' ? st.dayPlan : {},
+    }
+  }
+  const effectiveS = sanitizeState(activeStudent && studentState ? studentState : S)
   const effectiveUpdate = activeStudent ? studentUpdate : update
   const effectiveMode = scheduleModeOf(effectiveS)
   // A running programme wrote the schedule below (lib/programmes.js); the strip says whose it is.
@@ -393,8 +403,8 @@ function Schedule({ S, update, nav, mode, isStudent, activeStudent }) {
 
   const ws = weekStartOf(S)
   const todayDow = new Date().getDay()
-  const routineOf = id => S.routines.find(x => x.id === id)
-  const dayRoutines = d => [].concat(S.week[d] || []).map(routineOf).filter(Boolean)
+  const routineOf = id => (S?.routines || []).find(x => x.id === id)
+  const dayRoutines = d => [].concat(S?.week?.[d] || []).map(routineOf).filter(Boolean)
   // One weekday: what is on it at a glance, and a tap to change it (dayAssignSheet picks one
   // routine, several for a combined day, or a rest day).
   const dayRow = (d, rs = dayRoutines(d)) => {
@@ -531,7 +541,7 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
   const [edit, setEdit] = useState(false)
   const [flash, setFlash] = useState(null)
   const swipe = workoutControls(S).swipeSets
-  const routines = S.routines
+  const routines = Array.isArray(S?.routines) ? S.routines : []
   // The order of this list is the order of `S.routines`, and every other screen reads the same
   // array (the Start screen, the day sheets, the routine pickers), so moving a routine here moves
   // it everywhere (#142). Reordering lives behind Edit, like on an iPhone.
@@ -543,8 +553,15 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
 
   const addRoutine = () => {
     const r = { id: uid(), name: t('New routine'), emoji: DEFAULT_GLYPH, ex: [] }
-    update(s => { s.routines.push(r) })
-    nav('/plan/r/' + r.id)
+    update(s => {
+      if (!Array.isArray(s.routines)) s.routines = []
+      s.routines.push(r)
+    })
+    if (!activeStudent) {
+      nav('/plan/r/' + r.id)
+    } else {
+      useUI.getState().toast(t('New routine created for {0}', activeStudent.name || 'student'))
+    }
   }
   // The same delete as RoutineEdit's "Delete routine" button (lib/routines.js), with an Undo in
   // place of its confirm (v1.3.11): the swipe and the edit-mode minus both land here.
@@ -580,7 +597,7 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
   }
   // The weekdays a routine is on, short, in the order the week runs.
   const order = weekOrder(weekStartOf(S))
-  const daysOf = id => order.filter(d => [].concat(S.week[d] || []).includes(id)).map(d => t(DAYS[d]))
+  const daysOf = id => order.filter(d => [].concat(S?.week?.[d] || []).includes(id)).map(d => t(DAYS[d]))
   const sub = r => [exCount(r.ex.length), daysOf(r.id).join(', ')].filter(Boolean).join(' · ')
 
   return <>
