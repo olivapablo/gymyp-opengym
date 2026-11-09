@@ -243,7 +243,7 @@ export default function Plan() {
   return <div className="narrow plan">
     <div className="hdr">
       <SeasonDeco spot="header-bats" />
-      <div><h1>{t('Plan')}</h1><div className="sub">{mode === 'rotation' ? t('Your routines in a loop') : t('Your weekly routine')}</div></div>
+      <div><h1>{t('Plan')}</h1><div className="sub">{effectiveMode === 'rotation' ? t('Your routines in a loop') : t('Your weekly routine')}</div></div>
       <div className="hdr-actions">
         {showCoach && <Button size="sm" variant="tinted" icon="sparkles" onClick={() => nav('/coach')}>{t('Coach')}</Button>}
         <button className="iconbtn" data-tour="plan-menu" onClick={openMenu} aria-label={t('Plan options')} title={t('Plan options')}><Icon name="share" /></button>
@@ -262,22 +262,50 @@ export default function Plan() {
         />
       </div>
     )}
-    {activeStudentId ? (
-      <StudentPlanManager
-        student={students.find(x => x.id === activeStudentId)}
-        S={S}
-        nav={nav}
-      />
-    ) : <>
-    <Segmented className="plan-views" tour="plan-views" value={view} onChange={setView}
-      options={[{ value: 'schedule', label: t('Schedule') }, { value: 'routines', label: t('Routines') }]} />
-    {progChip && <button type="button" className="prog-strip" onClick={() => nav('/plan/programmes')}>
-      <Icon name="calendar" /><span className="grow">{S.programmes?.[S.programme?.id]?.name || t('Programme')}</span><span className="tag acc">{progChip}</span>
-    </button>}
-    {view === 'routines'
-      ? <Routines S={S} update={update} nav={nav} isStudent={isStudent} />
-      : <Schedule S={S} update={update} nav={nav} mode={mode} isStudent={isStudent} />}
-    </>}
+
+    {activeStudent && (
+      <div style={{
+        background: 'rgba(235, 170, 0, 0.12)',
+        border: '1px solid rgba(235, 170, 0, 0.35)',
+        borderRadius: 12,
+        padding: '10px 14px',
+        marginBottom: 14,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 10
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="user" style={{ color: 'var(--orange, #e59900)', fontSize: 18 }} />
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
+              Editando plan de: <span style={{ color: 'var(--orange, #e59900)' }}>{activeStudent.name}</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted, #888)' }}>
+              Los cambios se guardan directamente en el perfil del alumno
+            </div>
+          </div>
+        </div>
+        <Button size="sm" variant="tinted" onClick={() => setActiveStudentId(null)}>
+          Mis rutinas
+        </Button>
+      </div>
+    )}
+
+    {studentLoading ? (
+      <div className="empty" style={{ padding: 32 }}>Cargando datos del alumno...</div>
+    ) : (
+      <>
+        <Segmented className="plan-views" tour="plan-views" value={view} onChange={setView}
+          options={[{ value: 'schedule', label: t('Schedule') }, { value: 'routines', label: t('Routines') }]} />
+        {progChip && !activeStudent && <button type="button" className="prog-strip" onClick={() => nav('/plan/programmes')}>
+          <Icon name="calendar" /><span className="grow">{S.programmes?.[S.programme?.id]?.name || t('Programme')}</span><span className="tag acc">{progChip}</span>
+        </button>}
+        {view === 'routines'
+          ? <Routines S={effectiveS} update={effectiveUpdate} nav={nav} isStudent={isStudent} activeStudent={activeStudent} />
+          : <Schedule S={effectiveS} update={effectiveUpdate} nav={nav} mode={effectiveMode} isStudent={isStudent} activeStudent={activeStudent} />}
+      </>
+    )}
   </div>
 }
 
