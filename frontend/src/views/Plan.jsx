@@ -560,7 +560,9 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
     if (!activeStudent) {
       nav('/plan/r/' + r.id)
     } else {
-      useUI.getState().toast(t('New routine created for {0}', activeStudent.name || 'student'))
+      nav(`/plan/r/${r.id}?student=${activeStudent.id}`, {
+        state: { studentId: activeStudent.id, studentName: activeStudent.name }
+      })
     }
   }
   // The same delete as RoutineEdit's "Delete routine" button (lib/routines.js), with an Undo in
@@ -618,7 +620,15 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
               {...reorder.handle(i)}><Icon name="chevronsUpDown" /></button>}
           </div>)}</div>
         : <div className="list routine-list plan-routines">{routines.map(r => {
-          const row = <div key={r.id} className="item plan-routine" {...tappable(() => nav('/plan/r/' + r.id))}>
+          const row = <div key={r.id} className="item plan-routine" {...tappable(() => {
+            if (activeStudent) {
+              nav(`/plan/r/${r.id}?student=${activeStudent.id}`, {
+                state: { studentId: activeStudent.id, studentName: activeStudent.name }
+              })
+            } else {
+              nav('/plan/r/' + r.id)
+            }
+          })}>
             <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
             <div className="grow"><div className="tt">{r.name}</div><div className="ss">{sub(r)}</div></div>
             <MiniBodyMap routines={[r]} body={S.body} />

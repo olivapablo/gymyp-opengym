@@ -1,6 +1,9 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { useStore } from '../store/useStore.js'
+import { useStore, DEF } from '../store/useStore.js'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../lib/firebase.js'
+import { loadStateFromFirestore, saveStateToFirestore } from '../lib/firestore-sync.js'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
 import { activeProfile, exAvailable } from '../lib/equipment.js'
@@ -365,21 +368,110 @@ export function undoRemoveRoutineExercise({ routineId, i, before, after, base, d
 export default function RoutineEdit() {
   const nav = useNavigate()
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const location = useLocation()
+  const rawStudentId = searchParams.get('student')
+
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const isStudent = user?.role === 'student'
+  const studentId = (!isStudent && rawStudentId) ? rawStudentId : null
+
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
-  const r = S.routines.find(x => x.id === id)
-  useEffect(() => { if (!r) nav('/plan') }, [!!r])
-  // Editing here has no explicit "save" — every field change persists immediately. A single
-  // auto-backup on the way out (not per keystroke) covers the whole editing session, deletion
-  // included: this still unmounts after the delete button navigates away.
-  useEffect(() => () => useStore.getState().autoBackupNow(), [])
-  const edit = fn => update(s => { fn(s.routines.find(x => x.id === id).ex) })
+
+  const [studentState, setStudentState] = useState(null)
+  const [studentLoading, setStudentLoading] = useState(!!studentId)
+  const [studentName, setStudentName] = useState(location.state?.studentName || '')
+
+  useEffect(() => {
+    if (!studentId) return
+    let active = true
+    setStudentLoading(true)
+
+    if (!studentName) {
+      getDoc(doc(db, 'users', studentId))
+        .then(snap => {
+          if (active && snap.exists()) {
+            setStudentName(snap.data().name || 'Alumno')
+          }
+        })
+        .catch(() => {})
+    }
+
+    loadStateFromFirestore(studentId)
+      .then(st => {
+        if (!active) return
+        setStudentState(st || { ...DEF, routines: [] })
+      })
+      .catch(e => {
+        if (active) toast(e.message)
+      })
+      .finally(() => {
+        if (active) setStudentLoading(false)
+      })
+
+    return () => { active = false }
+  }, [studentId])
+
+  const sanitize = st => ({
+    ...DEF,
+    ...(st || {}),
+    routines: Array.isArray(st?.routines) ? st.routines : [],
+  })
+
+  const effectiveS = studentId ? sanitize(studentState) : S
+
+  const studentUpdate = async fn => {
+    if (!studentId) return
+    const prev = studentState || { ...DEF, routines: [] }
+    const copy = structuredClone(prev)
+    if (!Array.isArray(copy.routines)) copy.routines = []
+    fn(copy)
+    copy._ts = Date.now()
+    setStudentState(copy)
+    try {
+      await saveStateToFirestore(studentId, copy)
+    } catch (e) {
+      toast(e.message)
+    }
+  }
+
+  const effectiveUpdate = studentId ? studentUpdate : update
+  const r = effectiveS.routines.find(x => x.id === id)
+
+  useEffect(() => {
+    if (!studentLoading && !r) nav('/plan')
+  }, [studentLoading, !!r])
+
+  useEffect(() => () => {
+    if (!studentId) {
+      useStore.getState().autoBackupNow()
+    }
+  }, [studentId])
+
+  const edit = fn => effectiveUpdate(s => {
+    const routine = s.routines?.find(x => x.id === id)
+    if (routine) {
+      if (!Array.isArray(routine.ex)) routine.ex = []
+      fn(routine.ex)
+    }
+  })
+
   const reorder = useRoutineReorder(r, r?.ex || [], (sourceIndex, targetSlot) => {
     edit(exercises => { reorderRoutineUnit(exercises, sourceIndex, targetSlot) })
   })
+
+  if (studentLoading) {
+    return <div className="narrow">
+      <div className="hdr">
+        <button className="iconbtn" onClick={() => nav('/plan')}><Icon name="chevronLeft" /></button>
+        <div style={{ flex: 1, margin: '0 12px', fontWeight: 600 }}>Cargando rutina...</div>
+      </div>
+      <div className="empty" style={{ padding: 48 }}>Cargando datos del alumno...</div>
+    </div>
+  }
+
   if (!r) return null
   // The arrows move one exercise (#377): inside its superset, out of it at the edge, and past a
   // whole neighbouring unit otherwise (lib/history.js moveRoutineEntry). Drag moves supersets whole.
@@ -409,7 +501,7 @@ export default function RoutineEdit() {
     const picker = exercisePicker((ex, quick) => {
       // The slot and the history as they are now, not as this render saw them: a sync can land
       // while the picker is open, and the new exercise's weight comes from its own sessions.
-      const live = useStore.getState().S
+      const live = studentId ? effectiveS : useStore.getState().S
       const slot = live.routines.find(x => x.id === id)?.ex[i]
       if (!slot || slot.id !== openedOn) { picker.close(); return }
       // "+" on the exercise that is already in the slot: nothing to replace, and no toast that
@@ -417,7 +509,7 @@ export default function RoutineEdit() {
       if (quick && ex.id === openedOn) { picker.close(); return }
       if (quick) { commit(ex, current => replaceSlotExercise(current, ex.id, live, id)); return }
       const next = replaceSlotExercise(slot, ex.id, live, id)
-      exConfigSheet(ex, next, cfg => commit(ex, current => ({ id: ex.id, sg: current.sg, ...cfg })), null, r, null, null, t('Replace'), { backups: true })
+      exConfigSheet(ex, next, cfg => commit(ex, current => ({ id: ex.id, sg: current.sg, ...cfg })), null, r, null, null, t('Replace'), { backups: !studentId })
     }, { title: t('Replace exercise'), like: openedOn, backups: r.ex[i]?.subs })
   }
   // This routine on paper (#282): the print step (sheets.jsx printPlanSheet, "With pictures"
@@ -439,7 +531,7 @@ export default function RoutineEdit() {
       edit(x => x.push({ id: ex.id, ...pickedExerciseConfig(ex.id) }))
       toast(t('“{0}” added to {1}', exerciseNameText(ex), r.name))
     } else {
-      exConfigSheet(ex, null, cfg => edit(x => { x.push({ id: ex.id, ...cfg }) }), null, r, null, null, undefined, { backups: true })
+      exConfigSheet(ex, null, cfg => edit(x => { x.push({ id: ex.id, ...cfg }) }), null, r, null, null, undefined, { backups: !studentId })
     }
   })
 
@@ -456,9 +548,9 @@ export default function RoutineEdit() {
     supersetSheet(supersetMeta(r.ex, unitOf.get(i)), meta => edit(ex => { setSupersetMeta(ex, sg, meta) }))
   }
   const inSS = new Set(units.filter(u => u.length > 1).flat())
-  const profile = activeProfile(S)
-  const missingCount = profile ? r.ex.filter(e => !exAvailable(S, exOr(e.id))).length : 0
-  const swipe = workoutControls(S).swipeSets
+  const profile = activeProfile(effectiveS)
+  const missingCount = profile ? r.ex.filter(e => !exAvailable(effectiveS, exOr(e.id))).length : 0
+  const swipe = workoutControls(effectiveS).swipeSets
 
   return <div className="narrow">
     <div className="hdr">
@@ -466,15 +558,38 @@ export default function RoutineEdit() {
       <div style={{ flex: 1, margin: '0 12px' }}>
         {isStudent ? <div style={{ fontWeight: 600, fontSize: 'var(--fs-title3)', letterSpacing: '-.021em' }}>{r.name}</div>
         : <input className="input" data-tour="routine-name" aria-label={t('Routine name')} defaultValue={r.name} style={{ fontWeight: 600, fontSize: 'var(--fs-title3)', letterSpacing: '-.021em' }}
-          onChange={e => update(s => { s.routines.find(x => x.id === id).name = e.target.value.trim() || t('Routine') })} />}
+          onChange={e => effectiveUpdate(s => { s.routines.find(x => x.id === id).name = e.target.value.trim() || t('Routine') })} />}
       </div>
       {isStudent ? <span className="iconbtn" style={{ opacity: .8 }}><Icon name={glyphOf(r.emoji)} /></span>
-      : <button className="iconbtn" aria-label={t('Pick an icon')} onClick={() => glyphPicker(r.emoji, g => update(s => { s.routines.find(x => x.id === id).emoji = g }))}><Icon name={glyphOf(r.emoji)} /></button>}
+      : <button className="iconbtn" aria-label={t('Pick an icon')} onClick={() => glyphPicker(r.emoji, g => effectiveUpdate(s => { s.routines.find(x => x.id === id).emoji = g }))}><Icon name={glyphOf(r.emoji)} /></button>}
     </div>
+
+    {studentId && (
+      <div style={{
+        background: 'rgba(235, 170, 0, 0.12)',
+        border: '1px solid rgba(235, 170, 0, 0.35)',
+        borderRadius: 12,
+        padding: '10px 14px',
+        marginBottom: 16,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10
+      }}>
+        <Icon name="user" style={{ color: 'var(--orange, #e59900)', fontSize: 18 }} />
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
+            Editando a: <span style={{ color: 'var(--orange, #e59900)' }}>{studentName || 'Alumno'}</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted, #888)' }}>
+            Los cambios se guardan directamente en el perfil del alumno
+          </div>
+        </div>
+      </div>
+    )}
 
     <div className="sect-b" style={{ marginBottom: 16 }}>
       <SelectRow icon="chartLine" title={t('Progression')} sheetTitle={t('Progression')}
-        value={r.prog || profileRule(S)} onChange={v => update(s => { s.routines.find(x => x.id === id).prog = v })}
+        value={r.prog || profileRule(effectiveS)} onChange={v => effectiveUpdate(s => { s.routines.find(x => x.id === id).prog = v })}
         options={POLICIES_FOR.reps.map(p => ({ value: p, label: t(POLICY_NAME[p]), subtitle: t(POLICY_DESC[p]) }))} />
       {/* Two controls that read alike and are not (issue #294). Progression picks how this
           routine's own targets move, and "No automatic progression" keeps them where they are.
@@ -483,7 +598,7 @@ export default function RoutineEdit() {
           progresses from (session-start.js, history.js entryExcluded). */}
       <Row icon="chartLineSlash" iconTint="var(--orange)" title={t('Deload routine')}
         subtitle={t('Its workouts do not count toward progression. They still show in history and statistics.')}>
-        <Switch checked={r.excludeFromProgression === true} onChange={v => update(s => {
+        <Switch checked={r.excludeFromProgression === true} onChange={v => effectiveUpdate(s => {
           const routine = s.routines.find(x => x.id === id)
           if (v) routine.excludeFromProgression = true
           else delete routine.excludeFromProgression
@@ -520,14 +635,21 @@ export default function RoutineEdit() {
       const leavesUp = inSS.has(i) && !linkedPrev
       const leavesDown = inSS.has(i) && r.ex[i + 1]?.sg !== e.sg
       const isDragging = reorder.drag && i >= reorder.drag.first && i <= reorder.drag.last
-      const removeHere = () => removeRoutineExercise(id, i)
-      // A tap anywhere on the row opens the exercise's sheet; its Remove is the keyboard's way
-      // to take it out. The row itself is no button (it holds the link and Move buttons, which a
-      // screen reader would lose inside one): the name is, a real <button> stretched over the row
-      // (.tap-main, card dismiss pass), with the rail's buttons above it, so pressing Move up
-      // neither opens the sheet nor fills the row. The long press treats it as the row
-      // (data-row-open, useRoutineReorder).
-      const openEx = () => { if (isStudent) return; exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...(x[i].sg ? { sgName: x[i].sgName, sgRest: x[i].sgRest } : {}), ...cfg }; cleanupSg(x) }), removeHere, r, null, () => replace(i), undefined, { backups: true }); }
+      const removeHere = () => {
+        if (studentId) {
+          const slot = r?.ex?.[i]
+          edit(exercises => {
+            exercises.splice(i, 1)
+            cleanupSg(exercises)
+          })
+          if (slot) {
+            toast(t('“{0}” left the routine.', exerciseNameText(exOr(slot.id))))
+          }
+          return
+        }
+        removeRoutineExercise(id, i)
+      }
+      const openEx = () => { if (isStudent) return; exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...(x[i].sg ? { sgName: x[i].sgName, sgRest: x[i].sgRest } : {}), ...cfg }; cleanupSg(x) }), removeHere, r, null, () => replace(i), undefined, { backups: !studentId }); }
       const item = <div className={'item tap-host' + (inSS.has(i) ? ' in-ss' : '')}>
           {/* Shown on pointer devices only (index.css .routine-grip); the Move buttons and the
               long press stay the way in for a keyboard and a finger. */}
@@ -577,7 +699,7 @@ export default function RoutineEdit() {
       const { worked } = rankOf(load)
       return <div className="card" style={{ marginTop: 12 }}>
         <h2>{t('What this session hits')}</h2>
-        <BodyMap load={load} body={S.body} />
+        <BodyMap load={load} body={effectiveS.body} />
         <div className="mchips">
           {worked.slice(0, 6).map(m => <span key={m} className="mchip">{t(MUSCLE_NAME[m])}</span>)}
         </div>
@@ -590,8 +712,15 @@ export default function RoutineEdit() {
     <div className="sect-b re-acts">
       <button type="button" className="lrow tap" onClick={() => {
         const copy = copyRoutine(r, t('Copy'))
-        update(s => { s.routines.push(copy) })
-        nav('/plan/r/' + copy.id)
+        effectiveUpdate(s => {
+          if (!Array.isArray(s.routines)) s.routines = []
+          s.routines.push(copy)
+        })
+        if (studentId) {
+          nav('/plan/r/' + copy.id + '?student=' + studentId, { state: { studentId, studentName } })
+        } else {
+          nav('/plan/r/' + copy.id)
+        }
       }}><Icon name="copy" className="re-act-i" /><span className="lrow-m"><span className="lrow-t">{t('Copy routine')}</span></span></button>
       {/* A link a friend taps to add this routine to their own openGym (components/RoutineShare.jsx). */}
       <button type="button" className="lrow tap" disabled={!r.ex.length} onClick={() => shareRoutineSheet(r)}><Icon name="share" className="re-act-i" /><span className="lrow-m"><span className="lrow-t">{t('Share with a friend')}</span></span></button>
@@ -601,7 +730,13 @@ export default function RoutineEdit() {
       <button type="button" className="lrow tap danger" onClick={() => confirmSheet({
         title: t('Delete routine?'), message: t('“{0}” and its exercises will be removed.', r.name), confirmText: t('Delete'), danger: true,
         onConfirm: () => {
-          update(s => { deleteRoutine(s, id) })
+          if (studentId) {
+            effectiveUpdate(s => {
+              s.routines = (s.routines || []).filter(x => x.id !== id)
+            })
+          } else {
+            update(s => { deleteRoutine(s, id) })
+          }
           nav('/plan')
         }
       })}><Icon name="trash" className="re-act-i" /><span className="lrow-m"><span className="lrow-t">{t('Delete routine')}</span>
