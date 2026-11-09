@@ -561,7 +561,7 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
       nav('/plan/r/' + r.id)
     } else {
       nav(`/plan/r/${r.id}?student=${activeStudent.id}`, {
-        state: { studentId: activeStudent.id, studentName: activeStudent.name }
+        state: { studentId: activeStudent.id, studentName: activeStudent.name, routine: r }
       })
     }
   }
@@ -625,7 +625,7 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
           const row = <div key={r.id} className="item plan-routine" {...tappable(() => {
             if (activeStudent) {
               nav(`/plan/r/${r.id}?student=${activeStudent.id}`, {
-                state: { studentId: activeStudent.id, studentName: activeStudent.name }
+                state: { studentId: activeStudent.id, studentName: activeStudent.name, routine: r }
               })
             } else {
               nav('/plan/r/' + r.id)

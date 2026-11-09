@@ -367,10 +367,19 @@ export function undoRemoveRoutineExercise({ routineId, i, before, after, base, d
 
 export default function RoutineEdit() {
   const nav = useNavigate()
-  const { id } = useParams()
+  const { id: rawId } = useParams()
+  const id = rawId ? rawId.split('?')[0] : ''
   const [searchParams] = useSearchParams()
   const location = useLocation()
-  const rawStudentId = searchParams.get('student')
+
+  let rawStudentId = searchParams.get('student') || location.state?.studentId
+  if (!rawStudentId) {
+    try {
+      const fullUrl = window.location.href || ''
+      const match = fullUrl.match(/[?&]student=([^&#]+)/)
+      if (match) rawStudentId = decodeURIComponent(match[1])
+    } catch { /* ignore */ }
+  }
 
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
@@ -420,25 +429,10 @@ export default function RoutineEdit() {
     routines: Array.isArray(st?.routines) ? st.routines : [],
   })
 
-  const effectiveS = studentId ? sanitize(studentState) : S
-
-  const studentUpdate = async fn => {
-    if (!studentId) return
-    const prev = studentState || { ...DEF, routines: [] }
-    const copy = structuredClone(prev)
-    if (!Array.isArray(copy.routines)) copy.routines = []
-    fn(copy)
-    copy._ts = Date.now()
-    setStudentState(copy)
-    try {
-      await saveStateToFirestore(studentId, copy)
-    } catch (e) {
-      toast(e.message)
-    }
-  }
-
-  const effectiveUpdate = studentId ? studentUpdate : update
-  const r = effectiveS.routines.find(x => x.id === id)
+  const effectiveS = studentId ? sanitize(studentState) : (S || DEF)
+  const fallbackRoutine = location.state?.routine?.id === id ? location.state.routine : null
+  const rawR = (effectiveS.routines || []).find(x => x.id === id) || fallbackRoutine
+  const r = rawR ? { ...rawR, ex: Array.isArray(rawR.ex) ? rawR.ex : [] } : null
 
   useEffect(() => {
     if (!studentLoading && !r) nav('/plan')
@@ -450,8 +444,35 @@ export default function RoutineEdit() {
     }
   }, [studentId])
 
+  const studentUpdate = async fn => {
+    if (!studentId) return
+    const prev = studentState || { ...DEF, routines: [] }
+    const copy = structuredClone(prev)
+    if (!Array.isArray(copy.routines)) copy.routines = []
+    let target = copy.routines.find(x => x.id === id)
+    if (!target && fallbackRoutine) {
+      target = structuredClone(fallbackRoutine)
+      copy.routines.push(target)
+    }
+    fn(copy)
+    copy._ts = Date.now()
+    setStudentState(copy)
+    try {
+      await saveStateToFirestore(studentId, copy)
+    } catch (e) {
+      toast(e.message)
+    }
+  }
+
+  const effectiveUpdate = studentId ? studentUpdate : update
+
   const edit = fn => effectiveUpdate(s => {
-    const routine = s.routines?.find(x => x.id === id)
+    if (!Array.isArray(s.routines)) s.routines = []
+    let routine = s.routines.find(x => x.id === id)
+    if (!routine && fallbackRoutine) {
+      routine = structuredClone(fallbackRoutine)
+      s.routines.push(routine)
+    }
     if (routine) {
       if (!Array.isArray(routine.ex)) routine.ex = []
       fn(routine.ex)
@@ -462,7 +483,7 @@ export default function RoutineEdit() {
     edit(exercises => { reorderRoutineUnit(exercises, sourceIndex, targetSlot) })
   })
 
-  if (studentLoading) {
+  if (studentLoading && !r) {
     return <div className="narrow">
       <div className="hdr">
         <button className="iconbtn" onClick={() => nav('/plan')}><Icon name="chevronLeft" /></button>
@@ -472,7 +493,20 @@ export default function RoutineEdit() {
     </div>
   }
 
-  if (!r) return null
+  if (!r) {
+    return <div className="narrow">
+      <div className="hdr">
+        <button className="iconbtn" onClick={() => nav('/plan')}><Icon name="chevronLeft" /></button>
+        <div style={{ flex: 1, margin: '0 12px', fontWeight: 600 }}>Rutina</div>
+      </div>
+      <div className="empty" style={{ padding: 48 }}>
+        No se encontró la rutina.
+        <div style={{ marginTop: 14 }}>
+          <Button variant="primary" onClick={() => nav('/plan')}>Volver al Plan</Button>
+        </div>
+      </div>
+    </div>
+  }
   // The arrows move one exercise (#377): inside its superset, out of it at the edge, and past a
   // whole neighbouring unit otherwise (lib/history.js moveRoutineEntry). Drag moves supersets whole.
   const move = (i, dir) => {
@@ -614,7 +648,7 @@ export default function RoutineEdit() {
     {missingCount > 0 && <div className="card" style={{ marginBottom: 16, borderColor: 'var(--orange)' }}>
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
         <Icon name="warning" style={{ color: 'var(--orange)' }} />
-        <div className="small">{t('{0} of {1} exercises need equipment outside "{2}"', missingCount, r.ex.length, profile.name)}</div>
+        <div className="small">{t('{0} of {1} exercises need equipment outside "{2}"', missingCount, r.ex.length, (profile?.name || ''))}</div>
       </div>
     </div>}
 
@@ -629,7 +663,7 @@ export default function RoutineEdit() {
       // An unresolvable id is shown rather than skipped — hiding it left an entry you
       // could neither see nor delete, but that still turned up in the workout.
       const ex = exOr(e.id)
-      const noEquip = profile && !exAvailable(S, ex)
+      const noEquip = profile && !exAvailable(effectiveS, ex)
       const linkedPrev = i > 0 && e.sg && r.ex[i - 1].sg === e.sg
       // At a superset's edge an arrow takes the exercise out of it rather than past a neighbour.
       const leavesUp = inSS.has(i) && !linkedPrev
@@ -656,7 +690,7 @@ export default function RoutineEdit() {
           {!isStudent && <span className="routine-grip" data-drag-handle aria-hidden="true" title={t('Reorder exercises')}><Icon name="grip" /></span>}
           {ssPos.has(i) && <span className="ss-pos" aria-label={t('Superset position {0}', ssPos.get(i))}>{ssPos.get(i)}</span>}
           <Thumb ex={ex} />
-          <button type="button" className="grow item-open tap-main" data-row-open aria-haspopup="dialog" onClick={openEx}><span className={`tt ${exerciseNameClass(ex)}`}>{exerciseNameFor(ex)}</span><span className="ss">{exLine(viewTarget(S, e.id, e), exUnitOf(S, e.id), speedUnitOf(S))}</span>
+          <button type="button" className="grow item-open tap-main" data-row-open aria-haspopup="dialog" onClick={openEx}><span className={`tt ${exerciseNameClass(ex)}`}>{exerciseNameFor(ex)}</span><span className="ss">{exLine(viewTarget(effectiveS, e.id, e), exUnitOf(effectiveS, e.id), speedUnitOf(effectiveS))}</span>
             {e.note && <span className="small dim" style={{ marginTop: 2 }}>{e.note}</span>}</button>
           {noEquip && <span className="tag" style={{ color: 'var(--orange)', borderColor: 'var(--orange)' }} title={t('Needs {0}, which isn’t in your active profile', t(ex.eq))}><Icon name="warning" /></span>}
           {/* One rail (P4): the superset link beside the two move buttons, each a finger-sized
