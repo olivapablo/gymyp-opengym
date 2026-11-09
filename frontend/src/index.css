@@ -764,13 +764,10 @@ h4.sec{
    device gets the grip it looks for, with a grab cursor, and pressing it picks the row up at
    once (RoutineEdit.jsx). A touch screen keeps the long press and the row's full width. */
 .routine-grip{
-  display:none;flex:none;align-self:stretch;align-items:center;margin:-10px -6px -10px -4px;padding:0 4px;
+  display:flex;flex:none;align-self:stretch;align-items:center;margin:-10px -6px -10px -4px;padding:0 4px;
   color:var(--label-3);font-size:var(--fs-callout);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
 }
-@media (hover:hover) and (pointer:fine){
-  .routine-grip{display:flex}
-  .routine-grip:hover{color:var(--label-2)}
-}
+.routine-grip:hover{color:var(--label-2)}
 .routine-list.is-reordering,.routine-list.is-reordering *{cursor:grabbing}
 .thumb{width:50px;height:50px;border-radius:9px;object-fit:cover;background:#fff;flex:none}
 /* exercise pictures are decoration inside tappable rows/cards: no save-image callout on

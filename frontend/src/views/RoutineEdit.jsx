@@ -236,7 +236,7 @@ function useRoutineReorder(routineIdentity, exercises, onDrop) {
       // finger can still scroll the list, and a mouse scrolls with its wheel. preventDefault
       // keeps the press from starting a text selection or the row's swipe-to-delete, which
       // listen to the mouse events a pointerdown would otherwise go on to fire.
-      if (event.pointerType === 'mouse' && target.closest('[data-drag-handle]')) {
+      if (target.closest('[data-drag-handle]')) {
         event.preventDefault()
         lift(gesture)
         return
@@ -509,7 +509,7 @@ export default function RoutineEdit() {
       if (quick && ex.id === openedOn) { picker.close(); return }
       if (quick) { commit(ex, current => replaceSlotExercise(current, ex.id, live, id)); return }
       const next = replaceSlotExercise(slot, ex.id, live, id)
-      exConfigSheet(ex, next, cfg => commit(ex, current => ({ id: ex.id, sg: current.sg, ...cfg })), null, r, null, null, t('Replace'), { backups: !studentId })
+      exConfigSheet(ex, next, cfg => commit(ex, current => ({ id: ex.id, sg: current.sg, ...cfg })), null, r, null, null, t('Replace'), { backups: true })
     }, { title: t('Replace exercise'), like: openedOn, backups: r.ex[i]?.subs })
   }
   // This routine on paper (#282): the print step (sheets.jsx printPlanSheet, "With pictures"
@@ -531,7 +531,7 @@ export default function RoutineEdit() {
       edit(x => x.push({ id: ex.id, ...pickedExerciseConfig(ex.id) }))
       toast(t('“{0}” added to {1}', exerciseNameText(ex), r.name))
     } else {
-      exConfigSheet(ex, null, cfg => edit(x => { x.push({ id: ex.id, ...cfg }) }), null, r, null, null, undefined, { backups: !studentId })
+      exConfigSheet(ex, null, cfg => edit(x => { x.push({ id: ex.id, ...cfg }) }), null, r, null, null, undefined, { backups: true })
     }
   })
 
@@ -649,7 +649,7 @@ export default function RoutineEdit() {
         }
         removeRoutineExercise(id, i)
       }
-      const openEx = () => { if (isStudent) return; exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...(x[i].sg ? { sgName: x[i].sgName, sgRest: x[i].sgRest } : {}), ...cfg }; cleanupSg(x) }), removeHere, r, null, () => replace(i), undefined, { backups: !studentId }); }
+      const openEx = () => { if (isStudent) return; exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...(x[i].sg ? { sgName: x[i].sgName, sgRest: x[i].sgRest } : {}), ...cfg }; cleanupSg(x) }), removeHere, r, null, () => replace(i), undefined, { backups: true }); }
       const item = <div className={'item tap-host' + (inSS.has(i) ? ' in-ss' : '')}>
           {/* Shown on pointer devices only (index.css .routine-grip); the Move buttons and the
               long press stay the way in for a keyboard and a finger. */}

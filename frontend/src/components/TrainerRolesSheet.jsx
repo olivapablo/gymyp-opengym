@@ -1,9 +1,10 @@
 // Modal para gestionar alumnos y roles desde Firestore
 import { useState, useEffect } from 'react'
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
 import { useUI } from '../store/useUI.js'
 import { useStore } from '../store/useStore.js'
+import { confirmSheet } from '../sheets.jsx'
 import Icon from './Icon.jsx'
 import { Button } from './ui.jsx'
 
@@ -49,6 +50,29 @@ export default function TrainerRolesSheet({ close }) {
     } finally {
       setSavingId(null)
     }
+  }
+
+  const handleDeleteUser = targetUser => {
+    confirmSheet({
+      title: `¿Eliminar a ${targetUser.name || targetUser.email || 'este alumno'}?`,
+      message: 'Se eliminará el perfil del alumno y todos sus datos de entrenamiento de Firestore. Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar alumno',
+      danger: true,
+      onConfirm: async () => {
+        setSavingId(targetUser.id)
+        try {
+          await deleteDoc(doc(db, 'users', targetUser.id, 'data', 'state')).catch(() => {})
+          await deleteDoc(doc(db, 'users', targetUser.id))
+          setUsers(prev => prev.filter(u => u.id !== targetUser.id))
+          toast(`Alumno ${targetUser.name || ''} eliminado con éxito`)
+        } catch (e) {
+          console.error(e)
+          toast('Error al eliminar alumno: ' + (e.message || e))
+        } finally {
+          setSavingId(null)
+        }
+      }
+    })
   }
 
   return (
@@ -135,6 +159,19 @@ export default function TrainerRolesSheet({ close }) {
                     <option value="trainer">Entrenador</option>
                     <option value="student">Alumno</option>
                   </select>
+
+                  {!isMe && (
+                    <button
+                      className="iconbtn"
+                      title="Eliminar alumno"
+                      aria-label="Eliminar alumno"
+                      disabled={isSaving}
+                      style={{ color: 'var(--bad, #ff453a)', padding: 6 }}
+                      onClick={() => handleDeleteUser(u)}
+                    >
+                      <Icon name="trash" />
+                    </button>
+                  )}
                 </div>
               </div>
             )

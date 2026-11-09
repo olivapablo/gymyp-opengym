@@ -466,7 +466,7 @@ function Schedule({ S, update, nav, mode, isStudent, activeStudent }) {
         {/* A coach's own queue is read-only here: the one way to change what it holds is to
             adopt it first ("Use this rotation" below), never a tap on one of its rows. */}
         {!external && <div className="row plan-sec-acts" style={{ gap: 6 }}>
-          {seq.length > 0 && <button className="plan-textbtn" aria-pressed={editLoop} onClick={() => setEditLoop(e => !e)}>{editLoop ? t('Done') : t('Edit')}</button>}
+          {seq.length > 1 && <Button size="sm" variant={editLoop ? 'primary' : 'tinted'} icon={editLoop ? 'check' : 'chevronsUpDown'} aria-pressed={editLoop} onClick={() => setEditLoop(e => !e)}>{editLoop ? 'Listo' : 'Reordenar'}</Button>}
           {!isStudent && <Button size="sm" variant="tinted" icon="plus" data-tour="plan-loop-add" aria-label={t('Add routine to the rotation')}
             disabled={!S.routines.length} onClick={addToSeq}>{t('Add')}</Button>}
         </div>}
@@ -604,8 +604,10 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
 
   return <>
     <div className="row between plan-sec-h plan-routines-bar">
-      {routines.length > 0 && !isStudent
-        ? <button className="plan-textbtn" aria-pressed={edit} onClick={() => setEdit(e => !e)}>{edit ? t('Done') : t('Edit')}</button>
+      {routines.length > 1 && !isStudent
+        ? <Button size="sm" variant={edit ? 'primary' : 'tinted'} icon={edit ? 'check' : 'chevronsUpDown'} aria-pressed={edit} onClick={() => setEdit(e => !e)}>
+            {edit ? 'Listo' : 'Reordenar'}
+          </Button>
         : <span />}
       {!isStudent && <Button size="sm" variant="tinted" icon="plus" data-tour="plan-new" onClick={addRoutine}>{t('New routine')}</Button>}
     </div>
@@ -642,7 +644,7 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
               flash={flash?.id === r.id ? flash.n : 0}>{row}</SwipeRow>
             : row
         })}</div>}
-      <p className="sect-f">{isStudent ? 'Toca una rutina para ver los ejercicios o iniciarla.' : (edit ? t('Drag to reorder. Tap the minus to delete.') : t('Tap a routine to edit it. Reorder and delete are behind Edit.'))}</p>
+      <p className="sect-f">{isStudent ? 'Tocá una rutina para ver los ejercicios o iniciarla.' : (edit ? 'Arrastrá la manija con las flechas para reordenar las rutinas. Tocá el menos (-) para eliminar.' : 'Tocá una rutina para editarla. Tocá "Reordenar" para cambiar el orden de la lista.')}</p>
     </> : <>
       <EmptyState icon="clipboard" title={t('No routines yet.')} text={t('Make one, or grab the starter plan to get going.')}>
         <Button variant="tinted" icon="clipboard" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>

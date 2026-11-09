@@ -20,6 +20,11 @@ service cloud.firestore {
         (request.auth.uid == userId && !('role' in request.resource.data.diff(resource.data).affectedKeys())) ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer'
       );
+
+      // Un entrenador puede eliminar perfiles de alumnos
+      allow delete: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer'
+      );
     }
 
     // Datos de entrenamiento (rutinas, pesos, historial)
