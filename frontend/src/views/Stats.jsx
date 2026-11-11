@@ -14,6 +14,7 @@ import WeightRate from '../components/WeightRate.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import { SeasonDeco } from '../components/Seasonal.jsx'
 import Icon from '../components/Icon.jsx'
+import AnimatedNumber from '../components/AnimatedNumber.jsx'
 import { StreakCard } from '../components/Streak.jsx'
 import { ChallengesStatsCard } from '../components/Challenges.jsx'
 import { wrappedYears } from '../lib/wrapped.js'
@@ -887,12 +888,12 @@ export default function Stats() {
         full width (a few hundred sessions make a long number). The week streak is not a tile any
         more: it is the card right below, once. */}
     <div className={'kpis' + (bodyOn ? '' : ' two')} data-tour="stats-tiles">
-      <div className="tile"><div className="l">{t('Workouts')}</div><div className="v">{workouts.length}</div></div>
-      <div className="tile"><div className="l">{t('This month')}</div><div className="v">{monthW}</div></div>
+      <div className="tile"><div className="l">{t('Workouts')}</div><div className="v"><AnimatedNumber value={workouts.length} /></div></div>
+      <div className="tile"><div className="l">{t('This month')}</div><div className="v"><AnimatedNumber value={monthW} /></div></div>
       {bodyOn && <div className="tile"><div className="l">{t('Weight 30d')}</div><div className="v" style={{ color: bwDelta30 === null ? 'inherit' : bwDeltaColor(bwDelta30, (lastBW(S) || {}).w || 0) }}>{bwDelta30 === null ? '–' : (bwDelta30 > 0 ? '+' : '') + fmtNum(bwDelta30) + ' ' + S.unit}</div></div>}
       {/* Everything ever lifted (Discord): imports included, warm-ups only when the profile
           counts them (#719). */}
-      {lifetime > 0 && <div className="tile wide" data-lifetime-volume><SeasonDeco spot="stats-tile" /><div className="l">{t('Lifted in total')}</div><div className="v">{fmtVol(Math.round(lifetime), S.unit)}</div></div>}
+      {lifetime > 0 && <div className="tile wide" data-lifetime-volume><SeasonDeco spot="stats-tile" /><div className="l">{t('Lifted in total')}</div><div className="v"><AnimatedNumber value={Math.round(lifetime)} format={v => fmtVol(v, S.unit)} /></div></div>}
     </div>
 
     {workouts.length > 0 && motivationOn && <StreakCard info={streak} />}
