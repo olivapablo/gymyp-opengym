@@ -116,6 +116,7 @@ export default function Home() {
   // Settings → Modules (lib/modules.js): what a module switched off hides here.
   const on = id => isOn(S, id)
   const bwPoints = S.bodyweight.slice(-30).map(b => ({ t: weighInAt(b), y: b.w, d: b.d }))
+  const firstName = user?.name?.split(' ')[0] || null
 
   // today's session shown right under the week strip
   const onToday = () => { if (S.active) nav('/workout'); else if (todayRoutines.length) startFlow(effectiveRoutineIds(S, todayISO())); else dayOverrideSheet(todayISO()) }
@@ -125,10 +126,25 @@ export default function Home() {
   const onQueueStart = id => { if (S.active) nav('/workout'); else startFlow([id]) }
 
   return <div className="narrow">
-    <div className="hdr">
+    <div className="home-banner">
       <SeasonDeco spot="header-bats" />
-      <div><h1>{user ? t('Hi {0}', user.name) : 'GYMYP'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
-      {!isStudent && <button className="iconbtn" data-tour="settings-gear" onClick={() => nav('/settings')} aria-label={trouble ? t('Settings') + ', ' + t('Connection problem') : t('Settings')}><Icon name="gear" />{trouble && <span className="tab-dot" aria-hidden="true" />}</button>}
+      <div className="home-banner-glow" aria-hidden="true" />
+      <div className="home-banner-top">
+        <img src="/logo-brand.png" alt="PSG" className="home-banner-logo" />
+        {!isStudent && <button
+          className="home-banner-gear"
+          data-tour="settings-gear"
+          onClick={() => nav('/settings')}
+          aria-label={trouble ? t('Settings') + ', ' + t('Connection problem') : t('Settings')}
+        >
+          <Icon name="gear" />
+          {trouble && <span className="tab-dot" aria-hidden="true" />}
+        </button>}
+      </div>
+      <div className="home-banner-bottom">
+        <div className="home-banner-greeting">{user ? '¡Hola, ' + firstName + '!' : 'GYMYP'}</div>
+        <div className="home-banner-date">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+      </div>
     </div>
 
     <div className="card">

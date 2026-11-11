@@ -406,6 +406,75 @@ button.conn:active{filter:brightness(1.12)}
 /* the page title drops a step on phone widths (the Library's header leaves it the least room) */
 @media (max-width:420px){:root{--fs-large:1.875rem}}
 .hdr .sub{color:var(--label-2);font-size:var(--fs-subhead);letter-spacing:-.006em;margin-top:4px}
+/* ── Home banner card ────────────────────────────────────────────────── */
+.home-banner{
+  position:relative;overflow:hidden;
+  background:#0a0a0a;
+  border-radius:20px;
+  padding:16px 16px 20px;
+  margin:8px 0 14px;
+  display:flex;flex-direction:column;gap:0;
+  min-height:130px;
+  /* subtle green edge glow */
+  box-shadow:0 0 0 1px rgba(34,197,94,.18), 0 8px 32px rgba(0,0,0,.45);
+}
+/* animated green radial glow in top-right corner */
+.home-banner-glow{
+  position:absolute;top:-30px;right:-30px;
+  width:200px;height:200px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(34,197,94,.35) 0%, rgba(16,185,129,.12) 45%, transparent 70%);
+  pointer-events:none;
+}
+/* secondary darker stripe for depth */
+.home-banner::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg, transparent 55%, rgba(34,197,94,.07) 100%);
+  pointer-events:none;
+}
+/* top row: logo left, gear right */
+.home-banner-top{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  position:relative;z-index:1;
+}
+.home-banner-logo{
+  height:52px;width:auto;
+  /* crop only the green square bg — keep the PSG mark centred and readable */
+  object-fit:contain;object-position:left center;
+  /* Because the PNG has a square bg, we clip it to show only the icon portion */
+  max-width:68px;
+  border-radius:8px;
+  /* Pull top-left logo flush with padding */
+  margin:-2px 0 0 -2px;
+}
+.home-banner-gear{
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  width:44px;height:44px;min-width:44px;
+  border-radius:50%;
+  background:rgba(255,255,255,.10);
+  border:none;cursor:pointer;
+  color:#fff;font-size:1.25rem;
+  transition:background .15s;
+  flex:none;
+}
+.home-banner-gear:hover,.home-banner-gear:focus-visible{background:rgba(34,197,94,.25)}
+/* bottom row: greeting + date */
+.home-banner-bottom{
+  position:relative;z-index:1;
+  margin-top:auto;padding-top:12px;
+}
+.home-banner-greeting{
+  font-size:1.75rem;font-weight:800;
+  color:#fff;line-height:1.1;
+  letter-spacing:-.02em;
+}
+.home-banner-date{
+  font-size:.8125rem;font-weight:500;
+  color:rgba(134,239,172,.75);  /* green-300 at 75% opacity */
+  margin-top:4px;letter-spacing:.01em;
+  text-transform:capitalize;
+}
 /* Library: the count line runs under the title row at full width instead of beside the "By muscle"
    button, which left it ~200px on a phone: the catalogue count plus your own exercises stays one
    line in every language. The ellipsis is only the safety net (the strings are kept short), and
