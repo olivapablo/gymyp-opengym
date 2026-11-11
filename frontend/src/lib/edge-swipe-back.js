@@ -32,8 +32,15 @@ export const BACK_PREVIEW_EVENT = 'opengym:back-preview'
 
 /* ---------- pure decisions ---------- */
 
-/** Whether this build and device get the gesture at all. */
+/** Whether this build and device get the gesture at all.
+ * In development (localhost), enabled for interactive testing with DevTools touch emulation.
+ * In production:
+ * - Disabled on Android: Android 10+ OS handles edge swipe back natively at 0-24px.
+ * - Disabled on Safari in tabs: Safari has built-in page swipe navigation.
+ * - Enabled on iOS Standalone (PWA) and Capacitor iOS where no OS browser gesture exists.
+ */
 export function edgeSwipeEnabled({ mobile, platform, ios, standalone }) {
+  if (import.meta.env.DEV) return true
   if (mobile) return platform === 'ios'
   return !!ios && !!standalone
 }

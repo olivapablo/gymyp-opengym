@@ -631,12 +631,19 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
           const isStaggering = !enteredRef.current && !edit
           const rowStyle = isStaggering ? { animationDelay: `${Math.min(i, 5) * 25}ms` } : undefined
           const row = <div key={r.id} className={'item plan-routine' + (isStaggering ? ' stagger-item' : '')} style={rowStyle} {...tappable(() => {
-            if (activeStudent) {
-              nav(`/plan/r/${r.id}?student=${activeStudent.id}`, {
-                state: { studentId: activeStudent.id, studentName: activeStudent.name, routine: r }
-              })
+            const go = () => {
+              if (activeStudent) {
+                nav(`/plan/r/${r.id}?student=${activeStudent.id}`, {
+                  state: { studentId: activeStudent.id, studentName: activeStudent.name, routine: r }
+                })
+              } else {
+                nav('/plan/r/' + r.id)
+              }
+            }
+            if (typeof document !== 'undefined' && document.startViewTransition && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+              document.startViewTransition(() => { go() })
             } else {
-              nav('/plan/r/' + r.id)
+              go()
             }
           })}>
             <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
