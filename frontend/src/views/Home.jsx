@@ -1,3 +1,4 @@
+import logoBrand from '../logo-brand.png'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -130,7 +131,7 @@ export default function Home() {
       <SeasonDeco spot="header-bats" />
       <div className="home-banner-glow" aria-hidden="true" />
       <div className="home-banner-top">
-        <img src="logo-brand.png" alt="PSG" className="home-banner-logo" />
+        <img src={logoBrand} alt="PSG" className="home-banner-logo" />
         {!isStudent && <button
           className="home-banner-gear"
           data-tour="settings-gear"
