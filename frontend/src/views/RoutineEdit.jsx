@@ -15,6 +15,7 @@ import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, supersetSheet
 import { supersetMeta, setSupersetMeta } from '../lib/superset-meta.js'
 import { fmtRest } from '../lib/duration.js'
 import Icon from '../components/Icon.jsx'
+import { SkeletonRoutineEdit } from '../components/Skeleton.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { Button, Row, SelectRow, Switch } from '../components/ui.jsx'
 import { shareRoutineSheet } from '../components/RoutineShare.jsx'
@@ -484,13 +485,7 @@ export default function RoutineEdit() {
   })
 
   if (studentLoading && !r) {
-    return <div className="narrow">
-      <div className="hdr">
-        <button className="iconbtn" onClick={() => nav('/plan')}><Icon name="chevronLeft" /></button>
-        <div style={{ flex: 1, margin: '0 12px', fontWeight: 600 }}>Cargando rutina...</div>
-      </div>
-      <div className="empty" style={{ padding: 48 }}>Cargando datos del alumno...</div>
-    </div>
+    return <SkeletonRoutineEdit nav={nav} />
   }
 
   if (!r) {

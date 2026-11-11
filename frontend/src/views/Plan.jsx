@@ -20,6 +20,7 @@ import {
 } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import EmptyState from '../components/EmptyState.jsx'
+import { SkeletonPlan } from '../components/Skeleton.jsx'
 import { SeasonDeco } from '../components/Seasonal.jsx'
 import { Button, Row, Section, Segmented } from '../components/ui.jsx'
 import SwipeRow from '../components/SwipeRow.jsx'
@@ -303,7 +304,7 @@ export default function Plan() {
     )}
 
     {studentLoading ? (
-      <div className="empty" style={{ padding: 32 }}>Cargando datos del alumno...</div>
+      <SkeletonPlan />
     ) : (
       <>
         <Segmented className="plan-views" tour="plan-views" value={view} onChange={setView}
@@ -312,7 +313,7 @@ export default function Plan() {
           <Icon name="calendar" /><span className="grow">{S.programmes?.[S.programme?.id]?.name || t('Programme')}</span><span className="tag acc">{progChip}</span>
         </button>}
         {view === 'routines'
-          ? <Routines S={effectiveS} update={effectiveUpdate} nav={nav} isStudent={isStudent} activeStudent={activeStudent} />
+          ? <Routines key={activeStudent?.id || 'me'} S={effectiveS} update={effectiveUpdate} nav={nav} isStudent={isStudent} activeStudent={activeStudent} />
           : <Schedule S={effectiveS} update={effectiveUpdate} nav={nav} mode={effectiveMode} isStudent={isStudent} activeStudent={activeStudent} />}
       </>
     )}
@@ -540,6 +541,11 @@ function Schedule({ S, update, nav, mode, isStudent, activeStudent }) {
 function Routines({ S, update, nav, isStudent, activeStudent }) {
   const [edit, setEdit] = useState(false)
   const [flash, setFlash] = useState(null)
+  const enteredRef = useRef(false)
+  useEffect(() => {
+    const t = setTimeout(() => { enteredRef.current = true }, 500)
+    return () => clearTimeout(t)
+  }, [])
   const swipe = workoutControls(S).swipeSets
   const routines = Array.isArray(S?.routines) ? S.routines : []
   // The order of this list is the order of `S.routines`, and every other screen reads the same
@@ -621,8 +627,10 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
             {routines.length > 1 && <button className="plan-handle" aria-label={t('Move {0}', r.name)} title={t('Drag to reorder')}
               {...reorder.handle(i)}><Icon name="chevronsUpDown" /></button>}
           </div>)}</div>
-        : <div className="list routine-list plan-routines">{routines.map(r => {
-          const row = <div key={r.id} className="item plan-routine" {...tappable(() => {
+        : <div className="list routine-list plan-routines">{routines.map((r, i) => {
+          const isStaggering = !enteredRef.current && !edit
+          const rowStyle = isStaggering ? { animationDelay: `${Math.min(i, 5) * 25}ms` } : undefined
+          const row = <div key={r.id} className={'item plan-routine' + (isStaggering ? ' stagger-item' : '')} style={rowStyle} {...tappable(() => {
             if (activeStudent) {
               nav(`/plan/r/${r.id}?student=${activeStudent.id}`, {
                 state: { studentId: activeStudent.id, studentName: activeStudent.name, routine: r }

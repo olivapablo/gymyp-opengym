@@ -677,6 +677,72 @@ h4.sec{
 }
 @keyframes ping{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.45);opacity:0}}
 
+/* ------------------------------------------------ Skeleton & Shimmer (Tanda 2) -- */
+.skeleton-box {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.skeleton-box::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+:root[data-theme="light"] .skeleton-box::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.65) 50%,
+    transparent 100%
+  );
+}
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ------------------------------------------------ Stagger Entrance (Tanda 2) -- */
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.stagger-item {
+  animation: stagger-in 240ms var(--spring-gentle) both;
+}
+/* Crucial: during reorder and drag-and-drop, entrance animations are turned off */
+.is-editing .stagger-item,
+.plan-routines.is-editing .item,
+[data-reorder-row] {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-box::after {
+    display: none !important;
+  }
+  .stagger-item {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 /* NOTE on every backdrop-filter pair in this file: the -webkit- line comes first and the
    standard property last, which is the order a prefixed/standard pair wants — whichever is
    written last wins in the cascade, and that should be the standard name.
