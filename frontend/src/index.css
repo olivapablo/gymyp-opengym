@@ -85,6 +85,18 @@
   /* motion */
   --ease:cubic-bezier(.32,.72,0,1);
   --fast:140ms; --med:220ms;
+  /* Spring motion tokens — Tanda 1 premium motion system.
+     --spring-snappy: simulates a physical spring with linear(); used for buttons, chips, icons.
+     --spring-gentle: smooth deceleration for sheets and page entrances (no bounce).
+     Browsers without linear() fall back to --ease automatically via cascade order. */
+  --spring-snappy:linear(
+    0,0.009,0.035 2.1%,0.141,0.281 6.7%,0.723 12.9%,0.938 16.7%,
+    1.017,1.077,1.101 22.4%,1.102 24.3%,1.084 27.2%,1.002 36.4%,
+    0.983 40.5%,0.985 45.3%,1.001 54.4%,1
+  );
+  --spring-dur:180ms;
+  --spring-gentle:cubic-bezier(0.16,1,0.3,1);
+  --spring-gentle-dur:320ms;
   /* Pressed states (P13), one rule per tier, so a press feels the same wherever it lands:
      - rows (.item, .lrow.tap, .menu-item) fill with --press-fill and do not move: the iPhone's
        highlight for a table cell;
@@ -454,7 +466,7 @@ h4.sec{
 .card .big{font-size:30px;font-weight:600;letter-spacing:-.026em;line-height:1.1}
 /* A whole card that opens something (check-in, the streak's calendar, the advent card) answers the
    press the way a button does. A scale, not a fill: the seasonal cards bring their own ground. */
-.card.tappable{transition:transform var(--fast) var(--ease)}
+.card.tappable{transition:transform var(--spring-dur) var(--spring-snappy)}
 .card.tappable:active{transform:scale(var(--press-scale-card))}
 
 /* Card dismiss pass (1.4.4): one pattern for a card or a row that opens something AND holds a
@@ -477,7 +489,7 @@ h4.sec{
 :where(.tap-host button:not(.tap-main), .tap-host a[href], .tap-host [role="button"]){position:relative}
 /* the routine editor's grip picks the row up with a mouse, so it stays reachable above the cover */
 .tap-host [data-drag-handle]{position:relative;z-index:2}
-.card.tap-host{transition:transform var(--fast) var(--ease)}
+.card.tap-host{transition:transform var(--spring-dur) var(--spring-snappy)}
 .card.tap-host:has(.tap-main:active){transform:scale(var(--press-scale-card))}
 .item.tap-host:has(.tap-main:active),.wd-ex.tap-host:has(.tap-main:active){background:var(--press-fill)}
 .wd-ex .tap-main::after{border-radius:10px}
@@ -572,7 +584,7 @@ h4.sec{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;
   padding:14px 18px;border-radius:var(--r);font-size:var(--fs-body);font-weight:600;
   letter-spacing:-.012em;background:var(--surface-2);color:var(--label);
-  transition:transform var(--fast) var(--ease),background var(--fast),opacity var(--fast);
+  transition:transform var(--spring-dur) var(--spring-snappy),background var(--fast),opacity var(--fast);
 }
 .btn .icn{font-size:19px}
 .btn:active{transform:scale(var(--press-scale))}
@@ -627,6 +639,15 @@ h4.sec{
 /* A connection problem while the banner is switched off (Settings → Show connection status):
    a dot on the Home tab and on the Settings gear. */
 #tabbar .tab-ic{position:relative;display:inline-flex}
+/* Micro-pop spring when a tab becomes active — Tanda 1 */
+@keyframes tab-pop{
+  0%  {transform:scale(1)}
+  40% {transform:scale(1.18)}
+  65% {transform:scale(0.95)}
+  82% {transform:scale(1.06)}
+  100%{transform:scale(1)}
+}
+#tabbar button.on .tab-ic{animation:tab-pop var(--spring-dur) var(--spring-snappy) both}
 .tab-dot{
   position:absolute;top:-1px;right:-3px;width:8px;height:8px;border-radius:50%;
   background:var(--orange);box-shadow:0 0 0 2px var(--bg-el);pointer-events:none;
@@ -858,7 +879,7 @@ h4.sec{
 .chip{
   flex:none;padding:6px 13px;border-radius:99px;background:var(--surface);
   font-size:14px;font-weight:400;color:var(--label);text-transform:capitalize;
-  letter-spacing:-.006em;transition:background var(--fast),color var(--fast),transform var(--fast) var(--ease);
+  letter-spacing:-.006em;transition:background var(--fast),color var(--fast),transform var(--spring-dur) var(--spring-snappy);
 }
 .chip:active{transform:scale(var(--press-scale))}
 .chip.on{background:var(--acc);color:var(--on-acc);font-weight:500}
