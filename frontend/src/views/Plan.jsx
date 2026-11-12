@@ -9,7 +9,7 @@ import { pickedExerciseConfig } from '../lib/history.js'
 import { exerciseNameFor } from '../lib/i18n.js'
 import { Thumb } from '../components/Media.jsx'
 import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore, DEF } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { DAYN, DAYS, weekOrder, weekStartOf, uid, exCount, routineCount, todayISO, fmtDate } from '../lib/format.js'
@@ -152,8 +152,30 @@ export default function Plan() {
   const user = useStore(s => s.user)
   const isStudent = user?.role === 'student'
   const isTrainer = !isStudent
+  const [searchParams, setSearchParams] = useSearchParams()
   const [students, setStudents] = useState([])
-  const [activeStudentId, setActiveStudentId] = useState(null)
+  const [activeStudentId, setActiveStudentId] = useState(() => {
+    const fromUrl = searchParams.get('student')
+    if (fromUrl) return fromUrl
+    try { return localStorage.getItem('gym_active_student_id') || null } catch { return null }
+  })
+
+  useEffect(() => {
+    const urlStudent = searchParams.get('student')
+    if (urlStudent && urlStudent !== activeStudentId) {
+      setActiveStudentId(urlStudent)
+      try { localStorage.setItem('gym_active_student_id', urlStudent) } catch {}
+    }
+  }, [searchParams])
+
+  const handleSelectStudent = id => {
+    setActiveStudentId(id)
+    try {
+      if (id) localStorage.setItem('gym_active_student_id', id)
+      else localStorage.removeItem('gym_active_student_id')
+    } catch {}
+    setSearchParams(id ? { student: id } : {}, { replace: true })
+  }
   const fileRef = useRef(null)
 
   useEffect(() => {
@@ -267,7 +289,7 @@ export default function Plan() {
       <div style={{ marginBottom: 12 }}>
         <Segmented
           value={activeStudentId || 'me'}
-          onChange={v => setActiveStudentId(v === 'me' ? null : v)}
+          onChange={v => handleSelectStudent(v === 'me' ? null : v)}
           options={[
             { value: 'me', label: 'Mis Rutinas' },
             ...students.map(st => ({ value: st.id, label: 'Alumno: ' + st.name }))
@@ -299,7 +321,7 @@ export default function Plan() {
             </div>
           </div>
         </div>
-        <Button size="sm" variant="tinted" onClick={() => setActiveStudentId(null)}>
+        <Button size="sm" variant="tinted" onClick={() => handleSelectStudent(null)}>
           Mis rutinas
         </Button>
       </div>
@@ -576,19 +598,21 @@ function Routines({ S, update, nav, isStudent, activeStudent }) {
   // The same delete as RoutineEdit's "Delete routine" button (lib/routines.js), with an Undo in
   // place of its confirm (v1.3.11): the swipe and the edit-mode minus both land here.
   const remove = r => {
-    if (activeStudent) {
-      confirmSheet({
-        title: `¿Eliminar "${r.name}"?`,
-        message: `Se eliminará la rutina para ${activeStudent.name}.`,
-        confirmText: 'Eliminar',
-        danger: true,
-        onConfirm: () => {
+    const owner = activeStudent ? activeStudent.name : 'tus rutinas'
+    confirmSheet({
+      title: '¿Eliminar rutina?',
+      message: `¿Seguro que quieres eliminar "${r.name}" de ${owner}?`,
+      confirmText: 'Eliminar',
+      danger: true,
+      onConfirm: () => {
+        if (activeStudent) {
           update(s => { s.routines = (s.routines || []).filter(x => x.id !== r.id) })
+          useUI.getState().toast(`Rutina "${r.name}" eliminada de ${activeStudent.name}.`)
+        } else {
+          deleteRoutineWithUndo(r.id)
         }
-      })
-      return
-    }
-    deleteRoutineWithUndo(r.id)
+      }
+    })
   }
   // The swipe's other side: a copy right below the original, named the way "Copy routine" names
   // one, and staying on this list rather than opening it.

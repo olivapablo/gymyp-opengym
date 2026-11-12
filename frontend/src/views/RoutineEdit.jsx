@@ -381,6 +381,9 @@ export default function RoutineEdit() {
       if (match) rawStudentId = decodeURIComponent(match[1])
     } catch { /* ignore */ }
   }
+  if (!rawStudentId) {
+    try { rawStudentId = localStorage.getItem('gym_active_student_id') || null } catch {}
+  }
 
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
@@ -491,13 +494,13 @@ export default function RoutineEdit() {
   if (!r) {
     return <div className="narrow">
       <div className="hdr">
-        <button className="iconbtn" onClick={() => nav('/plan')}><Icon name="chevronLeft" /></button>
+        <button className="iconbtn" onClick={() => nav(studentId ? `/plan?student=${studentId}` : '/plan')}><Icon name="chevronLeft" /></button>
         <div style={{ flex: 1, margin: '0 12px', fontWeight: 600 }}>Rutina</div>
       </div>
       <div className="empty" style={{ padding: 48 }}>
         No se encontró la rutina.
         <div style={{ marginTop: 14 }}>
-          <Button variant="primary" onClick={() => nav('/plan')}>Volver al Plan</Button>
+          <Button variant="primary" onClick={() => nav(studentId ? `/plan?student=${studentId}` : '/plan')}>Volver al Plan</Button>
         </div>
       </div>
     </div>
@@ -583,7 +586,7 @@ export default function RoutineEdit() {
 
   return <div className="narrow">
     <div className="hdr">
-      <button className="iconbtn" data-back="/plan" data-tour="routine-back" onClick={() => nav('/plan')} aria-label={t('Plan')}><Icon name="chevronLeft" /></button>
+      <button className="iconbtn" data-back="/plan" data-tour="routine-back" onClick={() => nav(studentId ? `/plan?student=${studentId}` : '/plan')} aria-label={t('Plan')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, margin: '0 12px' }}>
         {isStudent ? <div style={{ fontWeight: 600, fontSize: 'var(--fs-title3)', letterSpacing: '-.021em' }}>{r.name}</div>
         : <input className="input" data-tour="routine-name" aria-label={t('Routine name')} defaultValue={r.name} style={{ fontWeight: 600, fontSize: 'var(--fs-title3)', letterSpacing: '-.021em' }}
@@ -756,19 +759,25 @@ export default function RoutineEdit() {
       <button type="button" className="lrow tap" disabled={!r.ex.length} onClick={printRoutine}><Icon name="download" className="re-act-i" /><span className="lrow-m"><span className="lrow-t">{t('Print / Save as PDF')}</span></span></button>
     </div>
     <div className="sect-b re-acts re-danger">
-      <button type="button" className="lrow tap danger" onClick={() => confirmSheet({
-        title: t('Delete routine?'), message: t('“{0}” and its exercises will be removed.', r.name), confirmText: t('Delete'), danger: true,
-        onConfirm: () => {
-          if (studentId) {
-            effectiveUpdate(s => {
-              s.routines = (s.routines || []).filter(x => x.id !== id)
-            })
-          } else {
-            update(s => { deleteRoutine(s, id) })
+      <button type="button" className="lrow tap danger" onClick={() => {
+        const owner = studentName || (studentId ? 'este alumno' : 'tus rutinas')
+        confirmSheet({
+          title: '¿Eliminar rutina?',
+          message: `¿Seguro que quieres eliminar "${r.name}" de ${owner}?`,
+          confirmText: 'Eliminar',
+          danger: true,
+          onConfirm: () => {
+            if (studentId) {
+              effectiveUpdate(s => {
+                s.routines = (s.routines || []).filter(x => x.id !== id)
+              })
+            } else {
+              update(s => { deleteRoutine(s, id) })
+            }
+            nav(studentId ? `/plan?student=${studentId}` : '/plan')
           }
-          nav('/plan')
-        }
-      })}><Icon name="trash" className="re-act-i" /><span className="lrow-m"><span className="lrow-t">{t('Delete routine')}</span>
+        })
+      }}><Icon name="trash" className="re-act-i" /><span className="lrow-m"><span className="lrow-t">{t('Delete routine')}</span>
         <span className="lrow-s">{t('“{0}” and its exercises will be removed.', r.name)}</span></span></button>
     </div>
   </div>
