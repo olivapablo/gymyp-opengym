@@ -42,6 +42,7 @@ import {
   chooseRotation, chooseFixedWeek, sequenceOf, isSimpleSequence, segmentAt, REST,
 } from '../lib/rotation.js'
 import { isOn } from '../lib/modules.js'
+import ScreenBanner from '../components/ScreenBanner.jsx'
 
 // Plan has two views (v1.3.11): Schedule (how you train, and when) and Routines (what you
 // train). The last one you looked at comes back: a per-device convenience, never synced, so it
@@ -252,14 +253,15 @@ export default function Plan() {
   const progChip = programmeChip(S)
 
   return <div className="narrow plan">
-    <div className="hdr">
-      <SeasonDeco spot="header-bats" />
-      <div><h1>{t('Plan')}</h1><div className="sub">{effectiveMode === 'rotation' ? t('Your routines in a loop') : t('Your weekly routine')}</div></div>
-      <div className="hdr-actions">
+    <ScreenBanner
+      title={t('Plan')}
+      subtitle={effectiveMode === 'rotation' ? t('Your routines in a loop') : t('Your weekly routine')}
+      seasonSpot="header-bats"
+      actions={<>
         {showCoach && <Button size="sm" variant="tinted" icon="sparkles" onClick={() => nav('/coach')}>{t('Coach')}</Button>}
         <button className="iconbtn" data-tour="plan-menu" onClick={openMenu} aria-label={t('Plan options')} title={t('Plan options')}><Icon name="share" /></button>
-      </div>
-    </div>
+      </>}
+    />
     <input ref={fileRef} type="file" accept="application/json,.json" onChange={pickFile} hidden />
     {isTrainer && students.length > 0 && (
       <div style={{ marginBottom: 12 }}>
