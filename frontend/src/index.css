@@ -406,45 +406,47 @@ button.conn:active{filter:brightness(1.12)}
 /* the page title drops a step on phone widths (the Library's header leaves it the least room) */
 @media (max-width:420px){:root{--fs-large:1.875rem}}
 .hdr .sub{color:var(--label-2);font-size:var(--fs-subhead);letter-spacing:-.006em;margin-top:4px}
-/* ── Home banner card (Ultra Premium - Black & Vivid Green) ──────────── */
+/* ── Home banner card (Reactive to accent color) ──────────────────────── */
 .home-banner{
   position:relative;overflow:hidden;
-  /* Fondo oscuro con degradado visible hacia verde esmeralda atlético */
+  /* Fondo oscuro obsidian/carbon enriquecido con la variable de acento --acc */
   background:
-    radial-gradient(ellipse 85% 120% at 92% 15%, rgba(34, 197, 94, 0.48) 0%, rgba(16, 185, 129, 0.26) 38%, rgba(5, 46, 22, 0.12) 65%, transparent 80%),
-    radial-gradient(circle at 10% 90%, rgba(16, 185, 129, 0.14) 0%, transparent 50%),
-    linear-gradient(140deg, #07120a 0%, #050a07 45%, #020403 100%);
+    radial-gradient(ellipse 90% 130% at 92% 15%, color-mix(in srgb, var(--acc) 45%, transparent) 0%, color-mix(in srgb, var(--acc) 22%, transparent) 40%, color-mix(in srgb, var(--acc) 8%, transparent) 65%, transparent 80%),
+    radial-gradient(circle at 10% 90%, color-mix(in srgb, var(--acc) 12%, transparent) 0%, transparent 50%),
+    linear-gradient(140deg, color-mix(in srgb, var(--acc) 8%, #080c0a) 0%, #060907 50%, #020403 100%);
   border-radius:var(--r-card, 16px);
   padding:18px 20px 20px;
   margin:4px 0 14px;
   display:flex;flex-direction:column;gap:0;
   min-height:148px;
-  /* Borde verde esmeralda luminiscente para contraste perfecto en oscuro y claro */
-  border:1px solid rgba(74, 222, 128, 0.28);
-  /* Sombra ambiental difuminada y suave, sin manchas duras */
+  /* Borde reactivo con sutil resplandor del acento elegido */
+  border:1px solid color-mix(in srgb, var(--acc) 32%, rgba(255,255,255,0.12));
+  /* Sombra ambiental difusa y ligera (sin sombras pesadas ni manchas duras) */
   box-shadow:
-    0 14px 44px -8px rgba(0, 0, 0, 0.22),
+    0 12px 36px -8px rgba(0, 0, 0, 0.22),
     0 4px 16px -2px rgba(0, 0, 0, 0.10),
-    0 0 36px -6px rgba(34, 197, 94, 0.12);
+    0 0 28px -4px color-mix(in srgb, var(--acc) 16%, transparent);
+  transition:border-color .3s ease, box-shadow .3s ease, opacity .3s ease;
 }
 /* Rejilla cibernética deportiva y brillo en el ángulo superior derecho */
 .home-banner::before{
   content:'';position:absolute;inset:0;
   background:
-    radial-gradient(circle at 88% 25%, rgba(74, 222, 128, 0.22) 0%, transparent 45%),
-    linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 35%);
+    radial-gradient(circle at 88% 25%, color-mix(in srgb, var(--acc) 22%, transparent) 0%, transparent 45%),
+    linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 35%);
   pointer-events:none;
 }
-/* Rayas de energía atlética sutiles en la esquina derecha */
+/* Rayas de energía atlética sutiles en la esquina derecha (sin blur pesado) */
 .home-banner-glow{
   position:absolute;top:-20px;right:-20px;
   width:260px;height:220px;
   background:
-    repeating-linear-gradient(-45deg, rgba(74, 222, 128, 0.08) 0, rgba(74, 222, 128, 0.08) 2px, transparent 2px, transparent 18px),
-    radial-gradient(circle at 80% 30%, rgba(34, 197, 94, 0.35) 0%, transparent 65%);
+    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--acc) 10%, transparent) 0, color-mix(in srgb, var(--acc) 10%, transparent) 2px, transparent 2px, transparent 18px),
+    radial-gradient(circle at 80% 30%, color-mix(in srgb, var(--acc) 32%, transparent) 0%, transparent 65%);
   mask-image:radial-gradient(circle at 75% 35%, black 40%, transparent 75%);
   -webkit-mask-image:radial-gradient(circle at 75% 35%, black 40%, transparent 75%);
   pointer-events:none;
+  transition:opacity .3s ease;
 }
 /* Fila superior: logo izquierda, engranaje derecha */
 .home-banner-top{
@@ -456,28 +458,27 @@ button.conn:active{filter:brightness(1.12)}
   max-width:180px;
   object-fit:contain;object-position:left center;
   display:block;
-  filter:drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+  filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));
 }
 .home-banner-gear{
   position:relative;
   display:flex;align-items:center;justify-content:center;
   width:42px;height:42px;min-width:42px;
   border-radius:50%;
-  background:rgba(34, 197, 94, 0.14);
-  border:1px solid rgba(74, 222, 128, 0.38);
-  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  background:color-mix(in srgb, var(--acc) 14%, rgba(255,255,255,0.08));
+  border:1px solid color-mix(in srgb, var(--acc) 35%, rgba(255,255,255,0.18));
   cursor:pointer;
-  color:#ecfdf5;font-size:1.2rem;
-  box-shadow:0 0 16px rgba(34, 197, 94, 0.2);
+  color:#ffffff;font-size:1.2rem;
+  box-shadow:0 0 16px color-mix(in srgb, var(--acc) 20%, transparent);
   transition:all .2s ease;
   flex:none;
 }
 .home-banner-gear:hover,.home-banner-gear:active{
-  background:rgba(34, 197, 94, 0.3);
-  border-color:rgba(74, 222, 128, 0.6);
+  background:color-mix(in srgb, var(--acc) 28%, rgba(255,255,255,0.15));
+  border-color:color-mix(in srgb, var(--acc) 55%, rgba(255,255,255,0.3));
   color:#fff;
   transform:scale(.96);
-  box-shadow:0 0 22px rgba(34, 197, 94, 0.4);
+  box-shadow:0 0 22px color-mix(in srgb, var(--acc) 35%, transparent);
 }
 /* Fila inferior: saludo + fecha */
 .home-banner-bottom{
@@ -492,10 +493,12 @@ button.conn:active{filter:brightness(1.12)}
 }
 .home-banner-date{
   font-size:.875rem;font-weight:600;
-  color:#4ade80;
+  /* Contraste óptimo y dinámico para los 9 colores (incluidos negro y amarillo) */
+  color:color-mix(in srgb, var(--acc) 75%, #ffffff);
   margin-top:4px;letter-spacing:.015em;
   text-transform:capitalize;
-  text-shadow:0 0 14px rgba(74, 222, 128, 0.35);
+  text-shadow:0 0 14px color-mix(in srgb, var(--acc) 35%, transparent);
+  transition:color .3s ease, text-shadow .3s ease, opacity .3s ease;
 }
 /* Library: the count line runs under the title row at full width instead of beside the "By muscle"
    button, which left it ~200px on a phone: the catalogue count plus your own exercises stays one
