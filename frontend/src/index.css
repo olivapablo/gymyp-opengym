@@ -500,6 +500,51 @@ button.conn:active{filter:brightness(1.12)}
   text-shadow:0 0 14px color-mix(in srgb, var(--acc) 35%, transparent);
   transition:color .3s ease, text-shadow .3s ease, opacity .3s ease;
 }
+/* ── Modo monocromático premium para acento negro / carbón ───────────── */
+:root[data-accent="black"] .home-banner,
+.home-banner.is-dark-accent{
+  background:
+    radial-gradient(ellipse 90% 130% at 92% 15%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.10) 40%, rgba(255, 255, 255, 0.03) 65%, transparent 80%),
+    radial-gradient(circle at 10% 90%, rgba(255, 255, 255, 0.06) 0%, transparent 50%),
+    linear-gradient(140deg, #181b1f 0%, #0d0f12 50%, #050607 100%);
+  border-color:rgba(255, 255, 255, 0.24);
+  box-shadow:
+    0 12px 36px -8px rgba(0, 0, 0, 0.5),
+    0 4px 16px -2px rgba(0, 0, 0, 0.25),
+    0 0 24px -4px rgba(255, 255, 255, 0.12);
+}
+:root[data-accent="black"] .home-banner::before,
+.home-banner.is-dark-accent::before{
+  background:
+    radial-gradient(circle at 88% 25%, rgba(255, 255, 255, 0.18) 0%, transparent 45%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, transparent 35%);
+}
+:root[data-accent="black"] .home-banner-glow,
+.home-banner.is-dark-accent .home-banner-glow{
+  background:
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.09) 0, rgba(255, 255, 255, 0.09) 2px, transparent 2px, transparent 18px),
+    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.24) 0%, transparent 65%);
+}
+:root[data-accent="black"] .home-banner-gear,
+.home-banner.is-dark-accent .home-banner-gear{
+  background:rgba(255, 255, 255, 0.12);
+  border-color:rgba(255, 255, 255, 0.28);
+  box-shadow:0 0 16px rgba(255, 255, 255, 0.16);
+  color:#ffffff;
+}
+:root[data-accent="black"] .home-banner-gear:hover,
+:root[data-accent="black"] .home-banner-gear:active,
+.home-banner.is-dark-accent .home-banner-gear:hover,
+.home-banner.is-dark-accent .home-banner-gear:active{
+  background:rgba(255, 255, 255, 0.22);
+  border-color:rgba(255, 255, 255, 0.55);
+  box-shadow:0 0 22px rgba(255, 255, 255, 0.35);
+}
+:root[data-accent="black"] .home-banner-date,
+.home-banner.is-dark-accent .home-banner-date{
+  color:#e2e8f0;
+  text-shadow:0 0 12px rgba(255, 255, 255, 0.35);
+}
 /* Library: the count line runs under the title row at full width instead of beside the "By muscle"
    button, which left it ~200px on a phone: the catalogue count plus your own exercises stays one
    line in every language. The ellipsis is only the safety net (the strings are kept short), and

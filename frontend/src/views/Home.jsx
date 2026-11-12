@@ -31,6 +31,8 @@ import { WrappedHomeCard } from '../components/WrappedEntry.jsx'
 import RecoveryHint from '../components/RecoveryHint.jsx'
 import { ChallengesCard } from '../components/Challenges.jsx'
 import { isOn } from '../lib/modules.js'
+import { accentValue, luminance } from '../lib/accent.js'
+import { seasonAccent } from '../lib/seasonal.js'
 
 // Home = what to do now + a quick glance. Deep charts & history live in Stats.
 export default function Home() {
@@ -40,6 +42,8 @@ export default function Home() {
   const isStudent = user?.role === 'student'
   // The banner switched off and the sync stuck: a dot on the gear (Settings → Show connection status).
   const trouble = useConnectionTrouble()
+  const activeAccent = seasonAccent(S) || accentValue(S)
+  const isDarkAccent = activeAccent === 'black' || (typeof activeAccent === 'string' && activeAccent.startsWith('#') && luminance(activeAccent) < 0.12)
   const [weekOffset, setWeekOffset] = useState(0)
 
   const today = new Date()
@@ -127,7 +131,7 @@ export default function Home() {
   const onQueueStart = id => { if (S.active) nav('/workout'); else startFlow([id]) }
 
   return <div className="narrow">
-    <div className="home-banner">
+    <div className={'home-banner' + (isDarkAccent ? ' is-dark-accent' : '')}>
       <SeasonDeco spot="header-bats" />
       <div className="home-banner-glow" aria-hidden="true" />
       <div className="home-banner-top">
